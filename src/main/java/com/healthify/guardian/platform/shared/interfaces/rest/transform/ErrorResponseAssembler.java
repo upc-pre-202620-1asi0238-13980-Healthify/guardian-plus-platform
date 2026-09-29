@@ -1,24 +1,20 @@
 package com.healthify.guardian.platform.shared.interfaces.rest.transform;
 
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
+import com.healthify.guardian.platform.shared.infrastructure.i18n.MessageResolver;
 import com.healthify.guardian.platform.shared.interfaces.rest.resources.ErrorResource;
 import org.jspecify.annotations.NullMarked;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 
-import java.text.MessageFormat;
 import java.util.Locale;
-import java.util.MissingResourceException;
-import java.util.ResourceBundle;
 
 /**
  * Assembler for converting application errors to HTTP responses.
  */
 @NullMarked
 public final class ErrorResponseAssembler {
-    private static final String MESSAGES_BASENAME = "messages";
 
     private ErrorResponseAssembler() {
     }
@@ -79,31 +75,11 @@ public final class ErrorResponseAssembler {
     }
 
     private static String toLocalizedMessageOrNull(String key, Object... args) {
-        Locale locale = LocaleContextHolder.getLocale();
-        try {
-            ResourceBundle bundle = ResourceBundle.getBundle(MESSAGES_BASENAME, locale);
-            if (!bundle.containsKey(key)) {
-                return null;
-            }
-            String template = bundle.getString(key);
-            return MessageFormat.format(template, args);
-        } catch (MissingResourceException ex) {
-            return null;
-        }
+        return MessageResolver.resolveOrNull(key, args);
     }
 
     private static String toLocalizedMessageWithFallback(String key, String fallback, Object... args) {
-        Locale locale = LocaleContextHolder.getLocale();
-        try {
-            ResourceBundle bundle = ResourceBundle.getBundle(MESSAGES_BASENAME, locale);
-            if (!bundle.containsKey(key)) {
-                return fallback;
-            }
-            String template = bundle.getString(key);
-            return MessageFormat.format(template, args);
-        } catch (MissingResourceException ex) {
-            return fallback;
-        }
+        return MessageResolver.resolveOrDefault(key, fallback, args);
     }
 
     /**
