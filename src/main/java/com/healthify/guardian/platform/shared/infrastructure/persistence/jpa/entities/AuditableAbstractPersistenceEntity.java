@@ -1,4 +1,4 @@
-package com.bloomie.platform.shared.infrastructure.persistence.jpa.entities;
+package com.healthify.guardian.platform.shared.infrastructure.persistence.jpa.entities;
 
 import jakarta.persistence.*;
 import lombok.Getter;

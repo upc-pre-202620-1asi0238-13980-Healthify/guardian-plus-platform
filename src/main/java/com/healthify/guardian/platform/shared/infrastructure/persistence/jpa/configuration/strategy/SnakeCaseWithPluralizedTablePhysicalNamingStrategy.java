@@ -1,4 +1,4 @@
-package com.bloomie.platform.shared.infrastructure.persistence.jpa.configuration.strategy;
+package com.healthify.guardian.platform.shared.infrastructure.persistence.jpa.configuration.strategy;
 
 import org.hibernate.boot.model.naming.Identifier;
 import org.hibernate.boot.model.naming.PhysicalNamingStrategy;
