@@ -7,6 +7,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * Base JPA persistence entity for all persistence entities that require auditing.
@@ -17,14 +18,26 @@ import java.util.Date;
  *
  * <p>All bounded-context JPA persistence entities should extend this class
  * instead of placing {@code @Id} and auditing fields directly.</p>
+ *
+ * <p>The identity is an application-assigned {@link UUID} rather than a database-generated
+ * sequence: every aggregate root generates its own business identifier (e.g. {@code ReminderId})
+ * at construction time, so the very same value is reused as the technical primary key here.
+ * The id is therefore never null, which is exactly what lets Spring Data always route
+ * {@code save()} through {@code EntityManager.merge()} instead of {@code persist()} — merge()
+ * reconciles a detached copy with whatever instance is already managed in the current
+ * persistence context (relevant with {@code open-in-view=true}, where a find-then-save within
+ * the same request shares one session), whereas persist() would reject it outright with
+ * "a different object with the same identifier is already associated with this session".
+ * Auditing still fires correctly either way: {@code @CreatedDate}/{@code @LastModifiedDate}
+ * are driven by Hibernate's insert/update lifecycle events, not by how {@code save()} was invoked.</p>
  */
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
 public abstract class AuditableAbstractPersistenceEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(nullable = false, updatable = false)
+    private UUID id;
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
@@ -40,7 +53,7 @@ public abstract class AuditableAbstractPersistenceEntity {
      *
      * @param id the persistence identity to assign
      */
-    public void setId(Long id) {
+    public void setId(UUID id) {
         this.id = id;
     }
 }
