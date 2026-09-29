@@ -1,4 +1,4 @@
-package com.bloomie.platform.shared.infrastructure.i18n.configuration;
+package com.healthify.guardian.platform.shared.infrastructure.i18n.configuration;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

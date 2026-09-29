@@ -1,4 +1,4 @@
-package com.bloomie.platform.shared.infrastructure.documentation.openapi.configuration;
+package com.healthify.guardian.platform.shared.infrastructure.documentation.openapi.configuration;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.ExternalDocumentation;
@@ -48,15 +48,15 @@ public class OpenApiConfiguration {
                         .description(this.applicationDescription)
                         .version(this.applicationVersion)
                         .contact(new Contact()
-                                .name("Bloomie Support")
-                                .email("support@bloomie.com")
-                                .url("https://bloomie.com/support"))
+                                .name("Healthify Support")
+                                .email("support@healthify.com")
+                                .url("https://github.com/upc-pre-202620-1asi0238-13980-Healthify/guardian-plus-platform"))
                         .license(new License()
                                 .name("Apache 2.0")
                                 .url("https://www.apache.org/licenses/LICENSE-2.0.html")))
                 .externalDocs(new ExternalDocumentation()
-                        .description("Bloomie Platform Documentation")
-                        .url("https://bloomie.wiki.github.io/docs"));
+                        .description("Guardian+ Platform Documentation")
+                        .url("https://github.com/upc-pre-202620-1asi0238-13980-Healthify/guardian-plus-platform/wiki"));
 
         // Use a relative server URL so Swagger UI always targets the same origin
         // it is being served from (localhost, Docker or Azure), avoiding CORS issues.
