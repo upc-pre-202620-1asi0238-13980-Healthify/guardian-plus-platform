@@ -1,4 +1,4 @@
-package com.acme.center.platform.shared.interfaces.rest.resources;
+package com.healthify.guardian.platform.shared.interfaces.rest.resources;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.jspecify.annotations.Nullable;

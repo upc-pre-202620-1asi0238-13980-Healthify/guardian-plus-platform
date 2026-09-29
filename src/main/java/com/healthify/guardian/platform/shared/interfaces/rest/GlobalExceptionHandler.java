@@ -1,7 +1,7 @@
-package com.bloomie.platform.shared.interfaces.rest;
+package com.healthify.guardian.platform.shared.interfaces.rest;
 
-import com.bloomie.platform.shared.application.result.ApplicationError;
-import com.bloomie.platform.shared.interfaces.rest.transform.ErrorResponseAssembler;
+import com.healthify.guardian.platform.shared.application.result.ApplicationError;
+import com.healthify.guardian.platform.shared.interfaces.rest.transform.ErrorResponseAssembler;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.ResponseEntity;

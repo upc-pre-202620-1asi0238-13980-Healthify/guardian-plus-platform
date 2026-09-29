@@ -1,7 +1,7 @@
-package com.bloomie.platform.shared.interfaces.rest.transform;
+package com.healthify.guardian.platform.shared.interfaces.rest.transform;
 
-import com.bloomie.platform.shared.application.result.ApplicationError;
-import com.bloomie.platform.shared.application.result.Result;
+import com.healthify.guardian.platform.shared.application.result.ApplicationError;
+import com.healthify.guardian.platform.shared.application.result.Result;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
