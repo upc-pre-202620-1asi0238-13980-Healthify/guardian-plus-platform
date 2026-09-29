@@ -1,4 +1,4 @@
-package com.bloomie.platform.shared.application.result;
+package com.healthify.guardian.platform.shared.application.result;
 
 import org.jspecify.annotations.NullMarked;
 
