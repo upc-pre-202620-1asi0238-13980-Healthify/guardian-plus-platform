@@ -1,4 +1,4 @@
-package com.bloomie.platform.shared.domain.model.aggregates;
+package com.healthify.guardian.platform.shared.domain.model.aggregates;
 
 import org.jspecify.annotations.NullMarked;
 import org.springframework.data.domain.AbstractAggregateRoot;
