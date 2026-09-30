@@ -40,7 +40,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
  * created on demand by the very first acquisition confirmation.</p>
  */
 @RestController
-@RequestMapping(value = "/api/v1/medication-stock", produces = APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/medication-stocks", produces = APPLICATION_JSON_VALUE)
 @Tag(name = "Medication Stock", description = "Medication stock balance and restock endpoints")
 public class MedicationStockController {
 
