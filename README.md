@@ -1,6 +1,6 @@
 # Guardian+ Platform
 
-Guardian+ is a caregiving platform by Healthify, built as a modular monolith with Spring Boot. It helps caregivers look after people under care by managing care routines, medication reminders and medication stock, and by tracking wellness data such as activity and sleep from wearable devices.
+Guardian+ is a caregiving platform by Healthify, built as a modular monolith with Spring Boot. It helps caregivers look after people under care by alerting their care circle when a fall, an SOS or another risk is detected, by managing care routines, medication reminders and medication stock, and by tracking wellness data such as activity and sleep from wearable devices.
 
 ## Tech Stack
 
@@ -28,6 +28,7 @@ Cross-cutting concerns (result wrappers, i18n, persistence naming strategy, API 
 
 | Context | Responsibility | Base path                                        |
 |---|---|--------------------------------------------------|
+| `emergencyalerting` | Alerts raised by falls, SOS and other risk signals, their dispatch and escalation to the emergency contacts, and the incidents that follow | `/api/v1/alerts`, `/api/v1/incidents`, `/api/v1/alert-settings`, `/api/v1/emergency-contacts`, `/api/v1/alert-channel-settings` |
 | `careroutineswellness` | Care routines, medication reminders, medication stock and wearable wellness data (activity and sleep) | `/api/v1/reminders`, `/api/v1/medication-stocks` |
 | `shared` | Shared kernel: i18n, result wrappers, persistence naming strategy, OpenAPI config | —                                                |
 
@@ -132,6 +133,17 @@ $env:SPRING_PROFILES_ACTIVE="prod"; .\mvnw.cmd spring-boot:run
 In the `prod` profile, `DATABASE_URL`, `DATABASE_NAME`, `DATABASE_USER` and `DATABASE_PASSWORD` are required.
 
 The schema is currently managed by Hibernate (`ddl-auto=update`).
+
+### Emergency & Alerting
+
+| Property | Description | Default |
+|---|---|---|
+| `emergency-alerting.scheduler.fall-confirmation-check-delay-ms` | How often detected falls are checked for confirmation (20 s window) | `1000` |
+| `emergency-alerting.scheduler.ack-timeout-check-delay-ms` | How often unacknowledged alerts are checked for escalation | `5000` |
+| `emergency-alerting.notifications.executor.pool-size` | Threads used to send notifications | `4` |
+| `emergency-alerting.api.allow-any-alert-source` | Allow any alert source in `POST /api/v1/alerts`, not only falls and SOS | `true` in `dev`, `false` otherwise |
+
+Push and SMS notifications are simulated (logged) until their providers are integrated; in-app alerts are served through `GET /api/v1/alerts/pending/recipient/{userId}`.
 
 ### Internationalization
 
