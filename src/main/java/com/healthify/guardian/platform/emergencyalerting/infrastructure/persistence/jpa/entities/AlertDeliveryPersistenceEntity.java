@@ -44,6 +44,10 @@ public class AlertDeliveryPersistenceEntity {
     @JoinColumn(name = "alert_id", nullable = false, updatable = false)
     private AlertPersistenceEntity alert;
 
+    /** Position of this delivery within its alert, in dispatch order. */
+    @Column(name = "dispatch_order", nullable = false, updatable = false)
+    private Integer dispatchOrder;
+
     @Convert(converter = UserIdPersistenceConverter.class)
     @Column(name = "recipient_user_id", nullable = false)
     private UserId recipientUserId;

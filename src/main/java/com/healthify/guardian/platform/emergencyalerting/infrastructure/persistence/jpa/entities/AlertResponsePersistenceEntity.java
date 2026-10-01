@@ -39,6 +39,10 @@ public class AlertResponsePersistenceEntity {
     @JoinColumn(name = "alert_id", nullable = false, updatable = false)
     private AlertPersistenceEntity alert;
 
+    /** Position of this response within its alert, in claim order. */
+    @Column(name = "claim_order", nullable = false, updatable = false)
+    private Integer claimOrder;
+
     @Convert(converter = UserIdPersistenceConverter.class)
     @Column(name = "responder_user_id", nullable = false)
     private UserId responderUserId;

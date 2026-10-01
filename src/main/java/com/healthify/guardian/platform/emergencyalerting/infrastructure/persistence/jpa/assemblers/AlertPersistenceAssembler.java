@@ -66,13 +66,13 @@ public final class AlertPersistenceAssembler {
 
         var deliveries = new ArrayList<AlertDeliveryPersistenceEntity>();
         for (var delivery : alert.getDeliveries()) {
-            deliveries.add(toPersistenceFromDomain(delivery, entity));
+            deliveries.add(toPersistenceFromDomain(delivery, entity, deliveries.size()));
         }
         entity.setDeliveries(deliveries);
 
         var responses = new ArrayList<AlertResponsePersistenceEntity>();
         for (var response : alert.getResponses()) {
-            responses.add(toPersistenceFromDomain(response, entity));
+            responses.add(toPersistenceFromDomain(response, entity, responses.size()));
         }
         entity.setResponses(responses);
         return entity;
@@ -99,11 +99,16 @@ public final class AlertPersistenceAssembler {
                 entity.getNotes());
     }
 
+    /**
+     * The domain keeps deliveries in the order they were loaded (by position) plus the new ones
+     * appended, so a delivery's position is the same on every save.
+     */
     private static AlertDeliveryPersistenceEntity toPersistenceFromDomain(
-            AlertDelivery delivery, AlertPersistenceEntity alert) {
+            AlertDelivery delivery, AlertPersistenceEntity alert, int position) {
         var entity = new AlertDeliveryPersistenceEntity();
         entity.setId(delivery.getId().value());
         entity.setAlert(alert);
+        entity.setDispatchOrder(position);
         entity.setRecipientUserId(delivery.getRecipientUserId());
         entity.setRecipientLevel(delivery.getRecipientLevel());
         entity.setChannel(delivery.getChannel());
@@ -114,10 +119,11 @@ public final class AlertPersistenceAssembler {
     }
 
     private static AlertResponsePersistenceEntity toPersistenceFromDomain(
-            AlertResponse response, AlertPersistenceEntity alert) {
+            AlertResponse response, AlertPersistenceEntity alert, int position) {
         var entity = new AlertResponsePersistenceEntity();
         entity.setId(response.getId().value());
         entity.setAlert(alert);
+        entity.setClaimOrder(position);
         entity.setResponderUserId(response.getResponderUserId());
         entity.setResponseStatus(response.getResponseStatus());
         entity.setClaimedAt(response.getClaimedAt());

@@ -18,6 +18,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import lombok.Getter;
@@ -36,7 +37,9 @@ import java.util.List;
  * <p>Both child collections are fetched eagerly with one sub-select each: an alert is always
  * rebuilt as a whole aggregate, including by schedulers that run outside any web request (and
  * therefore without open-session-in-view), and sub-select fetching avoids both lazy-loading
- * failures and the cartesian product of joining two bags.</p>
+ * failures and the cartesian product of joining two bags. Both are read back in the order they were
+ * added, from a position written once at insert time (never updated, so saving an alert does not
+ * rewrite its children's rows).</p>
  */
 @Entity
 @Table(name = "alerts", indexes = {
@@ -87,9 +90,11 @@ public class AlertPersistenceEntity extends AuditableAbstractPersistenceEntity {
 
     @OneToMany(mappedBy = "alert", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @Fetch(FetchMode.SUBSELECT)
+    @OrderBy("dispatchOrder ASC")
     private List<AlertDeliveryPersistenceEntity> deliveries = new ArrayList<>();
 
     @OneToMany(mappedBy = "alert", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @Fetch(FetchMode.SUBSELECT)
+    @OrderBy("claimOrder ASC")
     private List<AlertResponsePersistenceEntity> responses = new ArrayList<>();
 }

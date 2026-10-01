@@ -32,7 +32,7 @@ import com.healthify.guardian.platform.emergencyalerting.domain.services.Escalat
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.application.result.Result;
 import com.healthify.guardian.platform.shared.infrastructure.i18n.MessageResolver;
-import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -177,10 +177,11 @@ public class AlertCommandServiceImpl implements AlertCommandService {
     }
 
     /**
-     * Loads the alert, applies the transition and saves it. When the save loses an optimistic-lock
-     * race (e.g. a recipient acknowledges while a delivery outcome is being recorded), the alert is
-     * reloaded and the transition re-evaluated against the fresh state, so the business rules
-     * decide the outcome rather than the timing; only a persistent conflict reaches the caller.
+     * Loads the alert, applies the transition and saves it. When the save loses a concurrency race
+     * (an optimistic-lock conflict, e.g. a recipient acknowledges while a delivery outcome is being
+     * recorded, or a database deadlock between those writes), the alert is reloaded and the
+     * transition re-evaluated against the fresh state, so the business rules decide the outcome
+     * rather than the timing; only a persistent conflict reaches the caller.
      */
     private Result<Alert, ApplicationError> applyToExistingAlert(
             UUID alertId, String operation, BiConsumer<Alert, Instant> transition) {
@@ -200,7 +201,7 @@ public class AlertCommandServiceImpl implements AlertCommandService {
                 return Result.failure(ApplicationError.validationError(operation, resolve(e)));
             } catch (IllegalStateException e) {
                 return Result.failure(ApplicationError.businessRuleViolation(operation, resolve(e)));
-            } catch (OptimisticLockingFailureException e) {
+            } catch (ConcurrencyFailureException e) {
                 if (attempt == MAX_ATTEMPTS) {
                     return Result.failure(ApplicationError.conflict("Alert", resolve(CONCURRENT_MODIFICATION_MESSAGE_KEY)));
                 }
