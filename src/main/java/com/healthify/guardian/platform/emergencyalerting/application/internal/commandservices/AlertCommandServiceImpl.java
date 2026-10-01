@@ -53,6 +53,7 @@ import java.util.function.BiConsumer;
 public class AlertCommandServiceImpl implements AlertCommandService {
 
     private static final String CONCURRENT_MODIFICATION_MESSAGE_KEY = "alert.concurrent-modification";
+    private static final int MAX_ATTEMPTS = 5;
 
     private final AlertRepository alertRepository;
     private final AlertSettingsRepository alertSettingsRepository;
@@ -175,25 +176,35 @@ public class AlertCommandServiceImpl implements AlertCommandService {
                 .orElseGet(() -> new AlertSettings(alert.getCareRecipientProfileId()));
     }
 
+    /**
+     * Loads the alert, applies the transition and saves it. When the save loses an optimistic-lock
+     * race (e.g. a recipient acknowledges while a delivery outcome is being recorded), the alert is
+     * reloaded and the transition re-evaluated against the fresh state, so the business rules
+     * decide the outcome rather than the timing; only a persistent conflict reaches the caller.
+     */
     private Result<Alert, ApplicationError> applyToExistingAlert(
             UUID alertId, String operation, BiConsumer<Alert, Instant> transition) {
         if (alertId == null) {
             return Result.failure(ApplicationError.validationError(operation, resolve("alert.id.invalid")));
         }
-        var alert = alertRepository.findById(new AlertId(alertId));
-        if (alert.isEmpty()) {
-            return Result.failure(ApplicationError.notFound("Alert", alertId.toString()));
-        }
 
-        try {
-            transition.accept(alert.get(), clock.instant());
-            return Result.success(saveAndReload(alert.get()));
-        } catch (IllegalArgumentException e) {
-            return Result.failure(ApplicationError.validationError(operation, resolve(e)));
-        } catch (IllegalStateException e) {
-            return Result.failure(ApplicationError.businessRuleViolation(operation, resolve(e)));
-        } catch (OptimisticLockingFailureException e) {
-            return Result.failure(ApplicationError.conflict("Alert", resolve(CONCURRENT_MODIFICATION_MESSAGE_KEY)));
+        for (int attempt = 1; ; attempt++) {
+            var alert = alertRepository.findById(new AlertId(alertId));
+            if (alert.isEmpty()) {
+                return Result.failure(ApplicationError.notFound("Alert", alertId.toString()));
+            }
+            try {
+                transition.accept(alert.get(), clock.instant());
+                return Result.success(saveAndReload(alert.get()));
+            } catch (IllegalArgumentException e) {
+                return Result.failure(ApplicationError.validationError(operation, resolve(e)));
+            } catch (IllegalStateException e) {
+                return Result.failure(ApplicationError.businessRuleViolation(operation, resolve(e)));
+            } catch (OptimisticLockingFailureException e) {
+                if (attempt == MAX_ATTEMPTS) {
+                    return Result.failure(ApplicationError.conflict("Alert", resolve(CONCURRENT_MODIFICATION_MESSAGE_KEY)));
+                }
+            }
         }
     }
 
