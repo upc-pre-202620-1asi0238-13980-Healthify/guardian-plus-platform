@@ -85,6 +85,11 @@ public class Alert extends AbstractDomainAggregateRoot<Alert> {
     private Instant acknowledgedAt;
     private UserId acknowledgedByUserId;
     private Instant resolvedAt;
+    /**
+     * Optimistic-locking token restored from persistence, so that an acknowledgement and an
+     * escalation racing on the same alert cannot both win. {@code null} until first saved.
+     */
+    private Long version;
 
     /** Reconstitution constructor, used by the persistence assembler. */
     public Alert() {
@@ -412,5 +417,9 @@ public class Alert extends AbstractDomainAggregateRoot<Alert> {
 
     public void setResolvedAt(Instant resolvedAt) {
         this.resolvedAt = resolvedAt;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 }
