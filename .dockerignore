@@ -1,0 +1,12 @@
+.git
+.github
+.idea
+.mvn
+.vscode
+target
+deploy
+*.iml
+*.md
+docker-compose*.yml
+mvnw
+mvnw.cmd
