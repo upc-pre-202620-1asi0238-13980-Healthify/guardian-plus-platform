@@ -166,7 +166,7 @@ Produces an executable JAR under `target/`.
 ## Deployment
 
 - **CI** (`.github/workflows/ci.yml`): builds and runs the tests on every PR to `develop` or `main`.
-- **CD** (`.github/workflows/deploy.yml`): every push to `main` runs the tests, publishes the Docker image to GHCR and redeploys it on the Azure VM.
+- **CD** (`.github/workflows/deploy.yml`): every push to `develop` runs the tests, publishes the Docker image to GHCR and redeploys it on the Azure VM.
 
 The VM runs `deploy/compose.yaml` (the API behind Caddy, which handles HTTPS) from `~/guardian-plus`, with its settings in `~/guardian-plus/.env` (see `deploy/.env.example`). The database is Azure Database for PostgreSQL.
 
