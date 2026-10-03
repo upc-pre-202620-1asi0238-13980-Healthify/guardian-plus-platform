@@ -10,3 +10,5 @@ HELP.md
 
 ### VS Code ###
 .vscode/
+### Deployment ###
+deploy/.env
