@@ -1,6 +1,7 @@
 package com.healthify.guardian.platform.mobilitygeofencing.infrastructure.persistence.jpa.entities;
 
 import jakarta.persistence.*;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -10,49 +11,61 @@ public class SafeZoneJpaEntity {
     @Id
     private UUID id;
 
-    @Column(name = "care_recipient_profile_id", nullable = false)
-    private UUID careRecipientProfileId;
+    @Column(name = "fragile_citizen_id", nullable = false)
+    private UUID fragileCitizenId;
 
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
-    private Double latitude;
+    @Column(name = "center_latitude", nullable = false)
+    private Double centerLatitude;
 
-    @Column(nullable = false)
-    private Double longitude;
+    @Column(name = "center_longitude", nullable = false)
+    private Double centerLongitude;
 
     @Column(name = "radius_in_meters", nullable = false)
     private Double radiusInMeters;
 
     @Column(nullable = false)
-    private Boolean active;
+    private String status;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
 
     public SafeZoneJpaEntity() {}
 
-    public SafeZoneJpaEntity(UUID id, UUID careRecipientProfileId, String name, Double latitude, Double longitude, Double radiusInMeters, Boolean active) {
+    public SafeZoneJpaEntity(UUID id, UUID fragileCitizenId, String name, Double centerLatitude, Double centerLongitude, Double radiusInMeters, String status, Instant createdAt, Instant updatedAt) {
         this.id = id;
-        this.careRecipientProfileId = careRecipientProfileId;
+        this.fragileCitizenId = fragileCitizenId;
         this.name = name;
-        this.latitude = latitude;
-        this.longitude = longitude;
+        this.centerLatitude = centerLatitude;
+        this.centerLongitude = centerLongitude;
         this.radiusInMeters = radiusInMeters;
-        this.active = active;
+        this.status = status;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     // Getters y Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
-    public UUID getCareRecipientProfileId() { return careRecipientProfileId; }
-    public void setCareRecipientProfileId(UUID careRecipientProfileId) { this.careRecipientProfileId = careRecipientProfileId; }
+    public UUID getFragileCitizenId() { return fragileCitizenId; }
+    public void setFragileCitizenId(UUID fragileCitizenId) { this.fragileCitizenId = fragileCitizenId; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
-    public Double getLatitude() { return latitude; }
-    public void setLatitude(Double latitude) { this.latitude = latitude; }
-    public Double getLongitude() { return longitude; }
-    public void setLongitude(Double longitude) { this.longitude = longitude; }
+    public Double getCenterLatitude() { return centerLatitude; }
+    public void setCenterLatitude(Double centerLatitude) { this.centerLatitude = centerLatitude; }
+    public Double getCenterLongitude() { return centerLongitude; }
+    public void setCenterLongitude(Double centerLongitude) { this.centerLongitude = centerLongitude; }
     public Double getRadiusInMeters() { return radiusInMeters; }
     public void setRadiusInMeters(Double radiusInMeters) { this.radiusInMeters = radiusInMeters; }
-    public Boolean getActive() { return active; }
-    public void setActive(Boolean active) { this.active = active; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }
