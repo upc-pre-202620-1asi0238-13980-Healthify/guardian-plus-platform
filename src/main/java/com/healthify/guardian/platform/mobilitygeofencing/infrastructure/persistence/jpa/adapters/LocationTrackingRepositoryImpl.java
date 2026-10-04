@@ -27,7 +27,7 @@ public class LocationTrackingRepositoryImpl implements LocationTrackingRepositor
 
     @Override
     public LocationTracking save(LocationTracking tracking) {
-        // 1. Guardar o actualizar el estado actual del seguimiento
+        // 1. Save or update the current tracking status
         LocationTrackingJpaEntity entity = new LocationTrackingJpaEntity(
                 tracking.getId().value(),
                 tracking.getFragileCitizenId().value(),
@@ -39,7 +39,7 @@ public class LocationTrackingRepositoryImpl implements LocationTrackingRepositor
         );
         trackingJpaRepository.save(entity);
 
-        // 2. Insertar el registro inmutable en la tabla de historial
+        // 2. Insert the immutable record into the history table.
         if (tracking.getCurrentLocation() != null) {
             LocationRecordJpaEntity recordEntity = new LocationRecordJpaEntity(
                     UUID.randomUUID(),
