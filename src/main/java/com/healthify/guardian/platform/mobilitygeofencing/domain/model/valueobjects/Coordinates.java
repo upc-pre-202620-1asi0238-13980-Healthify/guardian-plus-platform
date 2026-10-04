@@ -3,7 +3,7 @@ package com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobj
 public record Coordinates(Double latitude, Double longitude) {
     public Coordinates {
         if (!isValid(latitude, longitude)) {
-            throw new IllegalArgumentException("Coordenadas fuera de rango permisible (-90/90 lat, -180/180 lon).");
+            throw new IllegalArgumentException("Coordinates outside permissible range (-90/90 lat, -180/180 lon).");
         }
     }
 
