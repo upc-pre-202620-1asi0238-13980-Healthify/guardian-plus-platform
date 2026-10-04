@@ -3,9 +3,9 @@ package com.healthify.guardian.platform.mobilitygeofencing.interfaces.rest.resou
 import java.util.UUID;
 
 public record CreateSafeZoneResource(
-        UUID careRecipientProfileId,
+        UUID fragileCitizenId,
         String name,
-        Double latitude,
-        Double longitude,
+        Double centerLatitude,
+        Double centerLongitude,
         Double radiusInMeters
 ) {}
