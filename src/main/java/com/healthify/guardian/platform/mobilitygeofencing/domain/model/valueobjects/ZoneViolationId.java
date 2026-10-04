@@ -3,6 +3,6 @@ package com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobj
 import java.util.UUID;
 
 public record ZoneViolationId(UUID value) {
-    public ZoneViolationId { if (value == null) throw new IllegalArgumentException("ZoneViolationId no puede ser nulo."); }
+    public ZoneViolationId { if (value == null) throw new IllegalArgumentException("ZoneViolationId cannot be null."); }
     public static ZoneViolationId generate() { return new ZoneViolationId(UUID.randomUUID()); }
 }
