@@ -3,11 +3,15 @@ package com.healthify.guardian.platform.profile.interfaces.rest;
 import com.healthify.guardian.platform.profile.application.commandservices.CareRecipientProfileCommandService;
 import com.healthify.guardian.platform.profile.application.queryservices.CareRecipientProfileQueryService;
 import com.healthify.guardian.platform.profile.domain.model.queries.GetCareRecipientProfileQuery;
+import com.healthify.guardian.platform.profile.domain.model.queries.GetCareRecipientProfilesByCreatedByUserIdQuery;
 import com.healthify.guardian.platform.profile.domain.model.valueobjects.CareRecipientProfileId;
+import com.healthify.guardian.platform.profile.domain.model.valueobjects.UserId;
 import com.healthify.guardian.platform.profile.interfaces.rest.resources.CareRecipientProfileResource;
 import com.healthify.guardian.platform.profile.interfaces.rest.resources.CreateCareRecipientProfileResource;
+import com.healthify.guardian.platform.profile.interfaces.rest.resources.UpdateCareRecipientProfileResource;
 import com.healthify.guardian.platform.profile.interfaces.rest.transform.CareRecipientProfileResourceFromEntityAssembler;
 import com.healthify.guardian.platform.profile.interfaces.rest.transform.CreateCareRecipientProfileCommandFromResourceAssembler;
+import com.healthify.guardian.platform.profile.interfaces.rest.transform.UpdateCareRecipientProfileCommandFromResourceAssembler;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.interfaces.rest.transform.ErrorResponseAssembler;
 import com.healthify.guardian.platform.shared.interfaces.rest.transform.ResponseEntityAssembler;
@@ -24,10 +28,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
@@ -138,5 +144,83 @@ public class CareRecipientProfilesController {
         return ResponseEntity.ok(
                 CareRecipientProfileResourceFromEntityAssembler
                         .toResourceFromEntity(profile.get()));
+    }
+
+    @GetMapping("/created-by/{userId}")
+    @Operation(
+            summary = "List care recipient profiles created by a user",
+            description = "Retrieves every person under care profile created by a Guardian+ user.")
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Care recipient profiles retrieved")
+    })
+    public ResponseEntity<List<CareRecipientProfileResource>>
+    getCareRecipientProfilesByCreatedByUserId(
+            @PathVariable
+            @Parameter(
+                    description = "Guardian+ user unique identifier",
+                    required = true)
+            UUID userId) {
+
+        var query =
+                new GetCareRecipientProfilesByCreatedByUserIdQuery(
+                        new UserId(userId));
+
+        var resources =
+                careRecipientProfileQueryService.handle(query)
+                        .stream()
+                        .map(CareRecipientProfileResourceFromEntityAssembler
+                                ::toResourceFromEntity)
+                        .toList();
+
+        return ResponseEntity.ok(resources);
+    }
+
+    @PutMapping("/{careRecipientProfileId}")
+    @Operation(
+            summary = "Update a care recipient profile",
+            description = "Updates the personal information of a person under care.")
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Care recipient profile updated",
+                    content = @Content(
+                            schema = @Schema(
+                                    implementation =
+                                            CareRecipientProfileResource.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid request data"),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Care recipient profile not found")
+    })
+    public ResponseEntity<?> updateCareRecipientProfile(
+            @PathVariable
+            @Parameter(
+                    description = "Care recipient profile unique identifier",
+                    required = true)
+            UUID careRecipientProfileId,
+
+            @Valid
+            @RequestBody
+            UpdateCareRecipientProfileResource resource) {
+
+        var command =
+                UpdateCareRecipientProfileCommandFromResourceAssembler
+                        .toCommandFromResource(
+                                careRecipientProfileId,
+                                resource);
+
+        var result =
+                careRecipientProfileCommandService.handle(command);
+
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                CareRecipientProfileResourceFromEntityAssembler
+                        ::toResourceFromEntity,
+                HttpStatus.OK);
     }
 }
