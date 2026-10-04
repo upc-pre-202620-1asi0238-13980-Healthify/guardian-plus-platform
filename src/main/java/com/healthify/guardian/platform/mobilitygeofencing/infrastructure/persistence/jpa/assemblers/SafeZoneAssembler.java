@@ -1,35 +1,37 @@
 package com.healthify.guardian.platform.mobilitygeofencing.infrastructure.persistence.jpa.assemblers;
 
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.aggregates.SafeZone;
-import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.LocationPoint;
-import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.SafeZoneId;
+import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.*;
 import com.healthify.guardian.platform.mobilitygeofencing.infrastructure.persistence.jpa.entities.SafeZoneJpaEntity;
 
 public class SafeZoneAssembler {
 
-    public static SafeZoneJpaEntity toEntity(SafeZone domain) {
+    public static SafeZoneJpaEntity toEntity(SafeZone safeZone) {
         return new SafeZoneJpaEntity(
-                domain.getId().value(),
-                domain.getCareRecipientProfileId().value(),
-                domain.getName(),
-                domain.getCenterPoint().latitude(),
-                domain.getCenterPoint().longitude(),
-                domain.getRadiusInMeters(),
-                domain.isActive()
+                safeZone.getId().value(),
+                safeZone.getFragileCitizenId().value(),
+                safeZone.getName(),
+                safeZone.getBoundary().center().latitude(),
+                safeZone.getBoundary().center().longitude(),
+                safeZone.getBoundary().radiusInMeters(),
+                safeZone.getStatus().name(),
+                safeZone.getCreatedAt(),
+                safeZone.getUpdatedAt()
         );
     }
 
     public static SafeZone toDomain(SafeZoneJpaEntity entity) {
-        SafeZone zone = new SafeZone(
+        Coordinates center = new Coordinates(entity.getCenterLatitude(), entity.getCenterLongitude());
+        SafeZoneBoundary boundary = new SafeZoneBoundary(center, entity.getRadiusInMeters());
+
+        return new SafeZone(
                 new SafeZoneId(entity.getId()),
-                new CareRecipientProfileId(entity.getCareRecipientProfileId()),
+                new FragileCitizenId(entity.getFragileCitizenId()),
                 entity.getName(),
-                new LocationPoint(entity.getLatitude(), entity.getLongitude()),
-                entity.getRadiusInMeters()
+                boundary,
+                SafeZoneStatus.valueOf(entity.getStatus()),
+                entity.getCreatedAt(),
+                entity.getUpdatedAt()
         );
-        if (Boolean.FALSE.equals(entity.getActive())) {
-            zone.deactivate();
-        }
-        return zone;
     }
 }

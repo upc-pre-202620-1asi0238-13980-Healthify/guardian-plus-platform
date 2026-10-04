@@ -13,10 +13,10 @@ public record ReceiveLocationCommand(
 ) {
     public ReceiveLocationCommand {
         if (fragileCitizenId == null) {
-            throw new IllegalArgumentException("fragileCitizenId no puede ser nulo.");
+            throw new IllegalArgumentException("fragileCitizenId cannot be null.");
         }
         if (coordinates == null) {
-            throw new IllegalArgumentException("coordinates no puede ser nulo.");
+            throw new IllegalArgumentException("coordinates cannot be null.");
         }
         if (recordedAt == null) {
             recordedAt = Instant.now();

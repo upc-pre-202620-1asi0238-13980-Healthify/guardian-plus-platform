@@ -3,10 +3,10 @@ package com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobj
 public record SafeZoneBoundary(Coordinates center, Double radiusInMeters) {
     public SafeZoneBoundary {
         if (center == null) {
-            throw new IllegalArgumentException("El centro de la geocerca no puede ser nulo.");
+            throw new IllegalArgumentException("The center of the geofence cannot be null..");
         }
         if (radiusInMeters == null || radiusInMeters <= 0) {
-            throw new IllegalArgumentException("El radio debe ser mayor a 0 metros.");
+            throw new IllegalArgumentException("The radius must be greater than 0 meters.");
         }
     }
 
