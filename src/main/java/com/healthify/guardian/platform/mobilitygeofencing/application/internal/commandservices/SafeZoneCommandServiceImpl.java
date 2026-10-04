@@ -3,7 +3,6 @@ package com.healthify.guardian.platform.mobilitygeofencing.application.internal.
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.aggregates.SafeZone;
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.commands.CreateSafeZoneCommand;
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.commands.ProcessTelemetryCommand;
-import com.healthify.guardian.platform.mobilitygeofencing.domain.model.events.SafeZoneViolationEvent;
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.LocationPoint;
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.SafeZoneId;
 import com.healthify.guardian.platform.mobilitygeofencing.domain.repositories.SafeZoneRepository;
