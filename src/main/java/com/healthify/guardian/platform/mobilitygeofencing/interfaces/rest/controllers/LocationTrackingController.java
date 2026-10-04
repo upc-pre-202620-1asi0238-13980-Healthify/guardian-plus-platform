@@ -1,47 +1,63 @@
 package com.healthify.guardian.platform.mobilitygeofencing.interfaces.rest.controllers;
 
-import com.healthify.guardian.platform.mobilitygeofencing.application.internal.commandservices.SafeZoneCommandServiceImpl;
-import com.healthify.guardian.platform.mobilitygeofencing.domain.model.commands.ProcessTelemetryCommand;
-import com.healthify.guardian.platform.mobilitygeofencing.infrastructure.acl.MobilityGeofencingContextFacadeImpl;
-import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.LocationPoint;
-import com.healthify.guardian.platform.mobilitygeofencing.interfaces.rest.resources.TelemetryIngestionResource;
+import com.healthify.guardian.platform.mobilitygeofencing.application.internal.queryservices.LocationTrackingQueryService;
+import com.healthify.guardian.platform.mobilitygeofencing.domain.model.queries.GetLocationHistoryQuery;
+import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.FragileCitizenId;
+import com.healthify.guardian.platform.mobilitygeofencing.interfaces.rest.resources.CurrentLocationResource;
+import com.healthify.guardian.platform.mobilitygeofencing.interfaces.rest.resources.LocationHistoryResource;
+import com.healthify.guardian.platform.mobilitygeofencing.interfaces.rest.transform.LocationResourceAssembler;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/location-tracking")
 public class LocationTrackingController {
 
-    private final SafeZoneCommandServiceImpl safeZoneCommandService;
-    private final MobilityGeofencingContextFacadeImpl mobilityFacade;
+    private final LocationTrackingQueryService locationTrackingQueryService;
 
-    public LocationTrackingController(SafeZoneCommandServiceImpl safeZoneCommandService,
-                                      MobilityGeofencingContextFacadeImpl mobilityFacade) {
-        this.safeZoneCommandService = safeZoneCommandService;
-        this.mobilityFacade = mobilityFacade;
+    public LocationTrackingController(LocationTrackingQueryService locationTrackingQueryService) {
+        this.locationTrackingQueryService = locationTrackingQueryService;
     }
 
-    @PostMapping("/telemetry")
-    public ResponseEntity<Map<String, String>> processTelemetry(@RequestBody TelemetryIngestionResource resource) {
-        // 1. Crear el comando de procesamiento
-        ProcessTelemetryCommand command = new ProcessTelemetryCommand(
-                resource.careRecipientProfileId(),
-                resource.latitude(),
-                resource.longitude(),
-                resource.accuracy() != null ? resource.accuracy() : 0.0f
-        );
+    @GetMapping("/{fragileCitizenId}/current")
+    public ResponseEntity<CurrentLocationResource> getCurrentLocation(@PathVariable UUID fragileCitizenId) {
+        var fragileCitizen = new FragileCitizenId(fragileCitizenId);
+        return locationTrackingQueryService.getCurrentTracking(fragileCitizen)
+                .map(LocationResourceAssembler::toCurrentResource)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
 
-        // 2. Evaluar geocercas
-        safeZoneCommandService.handle(command);
+    @GetMapping("/{fragileCitizenId}/status")
+    public ResponseEntity<String> getCurrentStatus(@PathVariable UUID fragileCitizenId) {
+        var fragileCitizen = new FragileCitizenId(fragileCitizenId);
+        return locationTrackingQueryService.getCurrentTracking(fragileCitizen)
+                .map(tracking -> tracking.getCurrentStatus() != null ? tracking.getCurrentStatus().name() : "UNKNOWN")
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
 
-        // 3. Actualizar la última posición en la fachada ACL
-        mobilityFacade.updateLastKnownLocation(
-                resource.careRecipientProfileId(),
-                new LocationPoint(resource.latitude(), resource.longitude(), resource.accuracy())
-        );
+    @GetMapping("/{fragileCitizenId}/history")
+    public ResponseEntity<List<LocationHistoryResource>> getLocationHistory(
+            @PathVariable UUID fragileCitizenId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant end) {
 
-        return ResponseEntity.ok(Map.of("message", "Lectura de telemetría procesada exitosamente."));
+        Instant queryStart = (start != null) ? start : Instant.now().minusSeconds(86400);
+        Instant queryEnd = (end != null) ? end : Instant.now();
+
+        var query = new GetLocationHistoryQuery(new FragileCitizenId(fragileCitizenId), queryStart, queryEnd);
+        var locations = locationTrackingQueryService.handle(query);
+
+        var historyResources = locations.stream()
+                .map(LocationResourceAssembler::toHistoryResource)
+                .toList();
+
+        return ResponseEntity.ok(historyResources);
     }
 }
