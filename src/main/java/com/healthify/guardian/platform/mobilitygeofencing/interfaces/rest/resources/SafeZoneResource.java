@@ -4,10 +4,10 @@ import java.util.UUID;
 
 public record SafeZoneResource(
         UUID id,
-        UUID careRecipientProfileId,
+        UUID fragileCitizenId,
         String name,
         Double latitude,
         Double longitude,
         Double radiusInMeters,
-        Boolean active
+        String status
 ) {}
