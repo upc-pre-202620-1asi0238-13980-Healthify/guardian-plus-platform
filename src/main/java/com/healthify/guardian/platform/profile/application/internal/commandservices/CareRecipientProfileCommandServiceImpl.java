@@ -3,6 +3,8 @@ package com.healthify.guardian.platform.profile.application.internal.commandserv
 import com.healthify.guardian.platform.profile.application.commandservices.CareRecipientProfileCommandService;
 import com.healthify.guardian.platform.profile.domain.model.aggregates.CareRecipientProfile;
 import com.healthify.guardian.platform.profile.domain.model.commands.CreateCareRecipientProfileCommand;
+import com.healthify.guardian.platform.profile.domain.model.commands.UpdateCareRecipientProfileCommand;
+import com.healthify.guardian.platform.profile.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.profile.domain.repositories.CareRecipientProfileRepository;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.application.result.Result;
@@ -24,6 +26,7 @@ public class CareRecipientProfileCommandServiceImpl
     public CareRecipientProfileCommandServiceImpl(
             CareRecipientProfileRepository careRecipientProfileRepository,
             Clock profileClock) {
+
         this.careRecipientProfileRepository = careRecipientProfileRepository;
         this.clock = profileClock;
     }
@@ -33,14 +36,62 @@ public class CareRecipientProfileCommandServiceImpl
             CreateCareRecipientProfileCommand command) {
 
         try {
-            var profile = new CareRecipientProfile(command, clock.instant());
+            var profile =
+                    new CareRecipientProfile(
+                            command,
+                            clock.instant());
 
             return Result.success(
                     careRecipientProfileRepository.save(profile));
+
         } catch (IllegalArgumentException e) {
-            return Result.failure(ApplicationError.validationError(
-                    "create-care-recipient-profile",
-                    resolve(e)));
+            return Result.failure(
+                    ApplicationError.validationError(
+                            "create-care-recipient-profile",
+                            resolve(e)));
+        }
+    }
+
+    @Override
+    public Result<CareRecipientProfile, ApplicationError> handle(
+            UpdateCareRecipientProfileCommand command) {
+
+        try {
+            var id =
+                    new CareRecipientProfileId(
+                            command.careRecipientProfileId());
+
+            var profile =
+                    careRecipientProfileRepository.findById(id);
+
+            if (profile.isEmpty()) {
+                return Result.failure(
+                        ApplicationError.notFound(
+                                "CareRecipientProfile",
+                                id.value().toString()));
+            }
+
+            profile.get().updatePersonalInformation(
+                    command.firstName(),
+                    command.lastName(),
+                    command.birthDate(),
+                    clock.instant());
+
+            return Result.success(
+                    careRecipientProfileRepository.save(
+                            profile.get()));
+
+        } catch (IllegalArgumentException e) {
+            return Result.failure(
+                    ApplicationError.validationError(
+                            "update-care-recipient-profile",
+                            resolve(e)));
+
+        } catch (IllegalStateException e) {
+            return Result.failure(
+                    ApplicationError.businessRuleViolation(
+                            "update-care-recipient-profile",
+                            resolve(e)));
         }
     }
 
@@ -49,6 +100,8 @@ public class CareRecipientProfileCommandServiceImpl
     }
 
     private static String resolve(String messageKey) {
-        return MessageResolver.resolveOrDefault(messageKey, messageKey);
+        return MessageResolver.resolveOrDefault(
+                messageKey,
+                messageKey);
     }
 }
