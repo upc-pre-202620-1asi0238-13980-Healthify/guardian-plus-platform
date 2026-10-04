@@ -10,6 +10,7 @@ import com.healthify.guardian.platform.shared.application.result.ApplicationErro
 import com.healthify.guardian.platform.shared.application.result.Result;
 import com.healthify.guardian.platform.shared.infrastructure.i18n.MessageResolver;
 import org.springframework.stereotype.Service;
+import com.healthify.guardian.platform.profile.domain.model.commands.UpdateCareRecipientProfileImageCommand;
 
 import java.time.Clock;
 
@@ -94,7 +95,46 @@ public class CareRecipientProfileCommandServiceImpl
                             resolve(e)));
         }
     }
+    @Override
+    public Result<CareRecipientProfile, ApplicationError> handle(
+            UpdateCareRecipientProfileImageCommand command) {
 
+        try {
+            var id =
+                    new CareRecipientProfileId(
+                            command.careRecipientProfileId());
+
+            var profile =
+                    careRecipientProfileRepository.findById(id);
+
+            if (profile.isEmpty()) {
+                return Result.failure(
+                        ApplicationError.notFound(
+                                "CareRecipientProfile",
+                                id.value().toString()));
+            }
+
+            profile.get().updateProfileImage(
+                    command.profileImageUrl(),
+                    clock.instant());
+
+            return Result.success(
+                    careRecipientProfileRepository.save(
+                            profile.get()));
+
+        } catch (IllegalArgumentException e) {
+            return Result.failure(
+                    ApplicationError.validationError(
+                            "update-care-recipient-profile-image",
+                            resolve(e)));
+
+        } catch (IllegalStateException e) {
+            return Result.failure(
+                    ApplicationError.businessRuleViolation(
+                            "update-care-recipient-profile-image",
+                            resolve(e)));
+        }
+    }
     private static String resolve(RuntimeException exception) {
         return resolve(exception.getMessage());
     }

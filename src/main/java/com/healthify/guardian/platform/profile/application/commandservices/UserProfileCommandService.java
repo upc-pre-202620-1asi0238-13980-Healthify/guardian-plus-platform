@@ -6,7 +6,7 @@ import com.healthify.guardian.platform.profile.domain.model.commands.UpdateConta
 import com.healthify.guardian.platform.profile.domain.model.commands.UpdateUserProfileCommand;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.application.result.Result;
-
+import com.healthify.guardian.platform.profile.domain.model.commands.UpdateUserProfileImageCommand;
 /**
  * Application service contract for commands over the {@code UserProfile} aggregate.
  */
@@ -17,4 +17,6 @@ public interface UserProfileCommandService {
     Result<UserProfile, ApplicationError> handle(UpdateUserProfileCommand command);
 
     Result<UserProfile, ApplicationError> handle(UpdateContactInformationCommand command);
+
+    Result<UserProfile, ApplicationError> handle(UpdateUserProfileImageCommand command);
 }

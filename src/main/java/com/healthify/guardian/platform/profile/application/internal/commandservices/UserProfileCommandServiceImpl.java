@@ -11,6 +11,7 @@ import com.healthify.guardian.platform.shared.application.result.ApplicationErro
 import com.healthify.guardian.platform.shared.application.result.Result;
 import com.healthify.guardian.platform.shared.infrastructure.i18n.MessageResolver;
 import org.springframework.stereotype.Service;
+import com.healthify.guardian.platform.profile.domain.model.commands.UpdateUserProfileImageCommand;
 
 import java.time.Clock;
 import java.util.UUID;
@@ -70,6 +71,17 @@ public class UserProfileCommandServiceImpl implements UserProfileCommandService 
                 "update-contact-information",
                 (profile, now) -> profile.updateContactInformation(
                         command.phoneNumber(),
+                        now));
+    }
+    @Override
+    public Result<UserProfile, ApplicationError> handle(
+            UpdateUserProfileImageCommand command) {
+
+        return applyToExistingProfile(
+                command.userProfileId(),
+                "update-user-profile-image",
+                (profile, now) -> profile.updateProfileImage(
+                        command.profileImageUrl(),
                         now));
     }
 
