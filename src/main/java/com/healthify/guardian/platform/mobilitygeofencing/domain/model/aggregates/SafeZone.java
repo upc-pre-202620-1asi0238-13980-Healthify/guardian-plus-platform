@@ -1,65 +1,67 @@
 package com.healthify.guardian.platform.mobilitygeofencing.domain.model.aggregates;
 
-import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.CareRecipientProfileId;
-import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.LocationPoint;
-import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.SafeZoneId;
+import com.healthify.guardian.platform.mobilitygeofencing.domain.model.commands.CreateSafeZoneCommand;
+import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.*;
+
+import java.time.Instant;
 
 public class SafeZone {
-
     private final SafeZoneId id;
-    private final CareRecipientProfileId careRecipientProfileId;
+    private final FragileCitizenId fragileCitizenId;
     private String name;
-    private LocationPoint centerPoint;
-    private double radiusInMeters;
-    private boolean active;
+    private SafeZoneBoundary boundary;
+    private SafeZoneStatus status;
+    private final Instant createdAt;
+    private Instant updatedAt;
 
-    public SafeZone(SafeZoneId id, CareRecipientProfileId careRecipientProfileId, String name, LocationPoint centerPoint, double radiusInMeters) {
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("The name of the safe zone is mandatory.");
-        }
-        if (radiusInMeters <= 0) {
-            throw new IllegalArgumentException("The radius must be greater than 0 meters.");
-        }
-        this.id = id != null ? id : SafeZoneId.generate();
-        this.careRecipientProfileId = careRecipientProfileId;
-        this.name = name;
-        this.centerPoint = centerPoint;
-        this.radiusInMeters = radiusInMeters;
-        this.active = true;
+    public SafeZone(CreateSafeZoneCommand command) {
+        this.id = SafeZoneId.generate();
+        this.fragileCitizenId = new FragileCitizenId(command.fragileCitizenId());
+        this.name = command.name();
+        this.boundary = new SafeZoneBoundary(command.center(), command.radiusInMeters());
+        this.status = SafeZoneStatus.ACTIVE;
+        this.createdAt = Instant.now();
+        this.updatedAt = Instant.now();
     }
 
-    /**
-     * Evaluates whether a geographic point lies within the radius of this safe zone.
-     */
-    public boolean contains(LocationPoint point) {
-        if (!active || point == null) {
-            return false;
-        }
-        return centerPoint.distanceToInMeters(point) <= radiusInMeters;
+    public SafeZone(SafeZoneId id, FragileCitizenId fragileCitizenId, String name, SafeZoneBoundary boundary, SafeZoneStatus status, Instant createdAt, Instant updatedAt) {
+        this.id = id;
+        this.fragileCitizenId = fragileCitizenId;
+        this.name = name;
+        this.boundary = boundary;
+        this.status = status;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
+
+    public void updateBoundary(SafeZoneBoundary boundary) {
+        this.boundary = boundary;
+        this.updatedAt = Instant.now();
     }
 
     public void activate() {
-        this.active = true;
+        this.status = SafeZoneStatus.ACTIVE;
+        this.updatedAt = Instant.now();
     }
 
     public void deactivate() {
-        this.active = false;
+        this.status = SafeZoneStatus.INACTIVE;
+        this.updatedAt = Instant.now();
     }
 
-    public void updateDetails(String name, LocationPoint centerPoint, double radiusInMeters) {
-        if (radiusInMeters <= 0) {
-            throw new IllegalArgumentException("The radius must be greater than 0 meters.");
-        }
-        this.name = name;
-        this.centerPoint = centerPoint;
-        this.radiusInMeters = radiusInMeters;
+    public boolean contains(Location location) {
+        if (!isActive() || location == null) return false;
+        return boundary.contains(location.coordinates());
     }
+
+    public boolean isActive() { return status == SafeZoneStatus.ACTIVE; }
 
     // Getters
     public SafeZoneId getId() { return id; }
-    public CareRecipientProfileId getCareRecipientProfileId() { return careRecipientProfileId; }
+    public FragileCitizenId getFragileCitizenId() { return fragileCitizenId; }
     public String getName() { return name; }
-    public LocationPoint getCenterPoint() { return centerPoint; }
-    public double getRadiusInMeters() { return radiusInMeters; }
-    public boolean isActive() { return active; }
+    public SafeZoneBoundary getBoundary() { return boundary; }
+    public SafeZoneStatus getStatus() { return status; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 }

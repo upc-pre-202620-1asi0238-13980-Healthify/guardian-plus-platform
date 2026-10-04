@@ -1,7 +1,6 @@
 package com.healthify.guardian.platform.mobilitygeofencing.infrastructure.persistence.jpa.assemblers;
 
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.aggregates.SafeZone;
-import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.LocationPoint;
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.SafeZoneId;
 import com.healthify.guardian.platform.mobilitygeofencing.infrastructure.persistence.jpa.entities.SafeZoneJpaEntity;

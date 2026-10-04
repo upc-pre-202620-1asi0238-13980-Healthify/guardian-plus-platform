@@ -1,7 +1,6 @@
 package com.healthify.guardian.platform.mobilitygeofencing.domain.repositories;
 
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.aggregates.SafeZone;
-import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.SafeZoneId;
 
 import java.util.List;
