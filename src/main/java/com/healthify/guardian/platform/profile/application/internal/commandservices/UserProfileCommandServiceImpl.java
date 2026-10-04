@@ -42,7 +42,7 @@ public class UserProfileCommandServiceImpl implements UserProfileCommandService 
             if (existing.isPresent()) {
                 return Result.failure(ApplicationError.conflict(
                         "UserProfile",
-                        "A user profile already exists for this user."));
+                        resolve("user-profile.already-exists")));
             }
 
             return Result.success(userProfileRepository.save(profile));
