@@ -32,6 +32,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.healthify.guardian.platform.profile.interfaces.rest.resources.UpdateProfileImageResource;
+import com.healthify.guardian.platform.profile.interfaces.rest.transform.UpdateUserProfileImageCommandFromResourceAssembler;
 
 import java.util.UUID;
 
@@ -219,6 +221,47 @@ public class UserProfilesController {
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
                 UserProfileResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.OK);
+    }
+    @PutMapping("/{userProfileId}/profile-image")
+    @Operation(
+            summary = "Update user profile image",
+            description = "Updates the profile image associated with a Guardian+ user profile.")
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "User profile image updated",
+                    content = @Content(
+                            schema = @Schema(
+                                    implementation = UserProfileResource.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "User profile not found")
+    })
+    public ResponseEntity<?> updateUserProfileImage(
+            @PathVariable
+            @Parameter(
+                    description = "User profile unique identifier",
+                    required = true)
+            UUID userProfileId,
+
+            @RequestBody
+            UpdateProfileImageResource resource) {
+
+        var command =
+                UpdateUserProfileImageCommandFromResourceAssembler
+                        .toCommandFromResource(
+                                userProfileId,
+                                resource);
+
+        var result =
+                userProfileCommandService.handle(command);
+
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                UserProfileResourceFromEntityAssembler
+                        ::toResourceFromEntity,
                 HttpStatus.OK);
     }
 }

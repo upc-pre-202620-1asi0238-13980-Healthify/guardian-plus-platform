@@ -32,6 +32,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.healthify.guardian.platform.profile.interfaces.rest.resources.UpdateProfileImageResource;
+import com.healthify.guardian.platform.profile.interfaces.rest.transform.UpdateCareRecipientProfileImageCommandFromResourceAssembler;
 
 import java.util.List;
 import java.util.UUID;
@@ -210,6 +212,48 @@ public class CareRecipientProfilesController {
 
         var command =
                 UpdateCareRecipientProfileCommandFromResourceAssembler
+                        .toCommandFromResource(
+                                careRecipientProfileId,
+                                resource);
+
+        var result =
+                careRecipientProfileCommandService.handle(command);
+
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                CareRecipientProfileResourceFromEntityAssembler
+                        ::toResourceFromEntity,
+                HttpStatus.OK);
+    }
+    @PutMapping("/{careRecipientProfileId}/profile-image")
+    @Operation(
+            summary = "Update care recipient profile image",
+            description = "Updates the profile image of a person under care.")
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Care recipient profile image updated",
+                    content = @Content(
+                            schema = @Schema(
+                                    implementation =
+                                            CareRecipientProfileResource.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Care recipient profile not found")
+    })
+    public ResponseEntity<?> updateCareRecipientProfileImage(
+            @PathVariable
+            @Parameter(
+                    description = "Care recipient profile unique identifier",
+                    required = true)
+            UUID careRecipientProfileId,
+
+            @RequestBody
+            UpdateProfileImageResource resource) {
+
+        var command =
+                UpdateCareRecipientProfileImageCommandFromResourceAssembler
                         .toCommandFromResource(
                                 careRecipientProfileId,
                                 resource);
