@@ -1,11 +1,16 @@
 package com.healthify.guardian.platform.mobilitygeofencing.domain.model.queries;
 
+import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.FragileCitizenId;
 
 import java.time.Instant;
-import java.util.UUID;
+
 
 public record GetLocationHistoryQuery(
-        UUID fragileCitizenId,
-        Instant periodStart,
-        Instant periodEnd
-) {}
+        FragileCitizenId fragileCitizenId,
+        Instant start,
+        Instant end
+) {
+    public GetLocationHistoryQuery {
+        if (fragileCitizenId == null) throw new IllegalArgumentException("fragileCitizenId cannot be null.");
+    }
+}
