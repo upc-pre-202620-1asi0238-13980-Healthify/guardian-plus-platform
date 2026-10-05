@@ -2,10 +2,12 @@ package com.healthify.guardian.platform.healthmonitoring.application.internal.co
 
 import com.healthify.guardian.platform.healthmonitoring.application.commandservices.VitalSignThresholdCommandService;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSignThreshold;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.ActivateVitalSignThresholdCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.DeactivateVitalSignThresholdCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.DefineVitalSignThresholdCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignRange;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignThresholdId;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignTypeId;
 import com.healthify.guardian.platform.healthmonitoring.domain.repositories.VitalSignThresholdRepository;
@@ -24,6 +26,8 @@ import java.util.function.Consumer;
 @Service
 public class VitalSignThresholdCommandServiceImpl implements VitalSignThresholdCommandService {
 
+    private static final String OUTSIDE_PHYSICAL_LIMITS_KEY = "vital-sign-threshold.range.outside-physical-limits";
+
     private final VitalSignThresholdRepository vitalSignThresholdRepository;
     private final VitalSignTypeRepository vitalSignTypeRepository;
 
@@ -38,8 +42,13 @@ public class VitalSignThresholdCommandServiceImpl implements VitalSignThresholdC
         try {
             var careRecipientProfileId = new CareRecipientProfileId(command.careRecipientProfileId());
             var vitalSignTypeId = new VitalSignTypeId(command.vitalSignTypeId());
-            if (vitalSignTypeRepository.findById(vitalSignTypeId).isEmpty()) {
+            var type = vitalSignTypeRepository.findById(vitalSignTypeId);
+            if (type.isEmpty()) {
                 return Result.failure(ApplicationError.notFound("VitalSignType", command.vitalSignTypeId().toString()));
+            }
+            if (exceedsPhysicalLimits(type.get(), command)) {
+                return Result.failure(ApplicationError.validationError("define-vital-sign-threshold",
+                        MessageResolver.resolveOrDefault(OUTSIDE_PHYSICAL_LIMITS_KEY, OUTSIDE_PHYSICAL_LIMITS_KEY)));
             }
             var existing = vitalSignThresholdRepository
                     .findByCareRecipientProfileIdAndVitalSignTypeId(careRecipientProfileId, vitalSignTypeId);
@@ -62,6 +71,18 @@ public class VitalSignThresholdCommandServiceImpl implements VitalSignThresholdC
     @Override
     public Result<VitalSignThreshold, ApplicationError> handle(DeactivateVitalSignThresholdCommand command) {
         return changeState(command.vitalSignThresholdId(), VitalSignThreshold::deactivate, "deactivate-vital-sign-threshold");
+    }
+
+    /**
+     * A personalized range may be narrower or wider than the normal one, but never beyond what the
+     * vital sign type can physically measure. Malformed ranges are left to the aggregate to reject.
+     */
+    private static boolean exceedsPhysicalLimits(VitalSignType type, DefineVitalSignThresholdCommand command) {
+        if (command.minimumValue() == null || command.maximumValue() == null
+                || command.minimumValue().compareTo(command.maximumValue()) > 0) {
+            return false;
+        }
+        return !type.allows(new VitalSignRange(command.minimumValue(), command.maximumValue()));
     }
 
     private Result<VitalSignThreshold, ApplicationError> changeState(
