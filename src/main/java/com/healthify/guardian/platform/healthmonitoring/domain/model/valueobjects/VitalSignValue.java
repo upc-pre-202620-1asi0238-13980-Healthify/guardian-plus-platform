@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 /**
  * Raw numeric value of a single reading. It carries no unit or range of its own: its clinical
- * meaning depends on the {@code VitalSignType} and on the {@code VitalSignThreshold} in force.
+ * meaning depends on its {@code VitalSignType}.
  *
  * @param value the measured value
  */

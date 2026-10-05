@@ -1,7 +1,7 @@
 package com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects;
 
 /**
- * Where a vital sign reading falls with respect to the clinical range of its threshold.
+ * Where a vital sign reading falls with respect to the normal range of its vital sign type.
  */
 public enum ReadingClassification {
     BELOW_RANGE,
