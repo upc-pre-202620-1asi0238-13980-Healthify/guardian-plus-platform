@@ -1,6 +1,5 @@
 package com.healthify.guardian.platform.healthmonitoring.interfaces.rest;
 
-import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.WearableDevice;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,19 +19,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class VitalSignsControllerIntegrationTest extends HealthMonitoringRestTestBase {
 
     private final UUID recipient = UUID.randomUUID();
-    private VitalSignType heartRate;
     private WearableDevice device;
 
     @BeforeEach
     void setUp() {
-        heartRate = context.registerType("HR", "Heart rate", "bpm");
-        device = context.assignDevice(recipient, "GP-0001");
+        device = context.linkDevice(recipient, "GP-0001");
     }
 
     private String reading(String value, Instant measuredAt) {
         return """
-                {"wearableDeviceId":"%s","careRecipientProfileId":"%s","vitalSignTypeId":"%s","value":%s,"measuredAt":"%s"}
-                """.formatted(device.getId().value(), recipient, heartRate.getId().value(), value, measuredAt);
+                {"wearableDeviceId":"%s","careRecipientProfileId":"%s","vitalSignType":"HR","value":%s,"measuredAt":"%s"}
+                """.formatted(device.getId().value(), recipient, value, measuredAt);
     }
 
     @Test
@@ -41,6 +38,7 @@ class VitalSignsControllerIntegrationTest extends HealthMonitoringRestTestBase {
                         .content(reading("72", Instant.now().minusSeconds(5))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.careRecipientProfileId").value(recipient.toString()))
+                .andExpect(jsonPath("$.vitalSignType").value("HR"))
                 .andExpect(jsonPath("$.value").value(72))
                 .andExpect(jsonPath("$.emittedAt").exists());
     }
@@ -49,8 +47,20 @@ class VitalSignsControllerIntegrationTest extends HealthMonitoringRestTestBase {
     void rejectsReadingWithoutValue() throws Exception {
         mockMvc.perform(post("/api/v1/vital-signs").contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"wearableDeviceId":"%s","careRecipientProfileId":"%s","vitalSignTypeId":"%s","measuredAt":"2026-10-05T10:00:00Z"}
-                                """.formatted(device.getId().value(), recipient, heartRate.getId().value())))
+                                {"wearableDeviceId":"%s","careRecipientProfileId":"%s","vitalSignType":"HR","measuredAt":"2026-10-05T10:00:00Z"}
+                                """.formatted(device.getId().value(), recipient)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void rejectsUnknownTypeAndPhysicallyImpossibleValues() throws Exception {
+        mockMvc.perform(post("/api/v1/vital-signs").contentType(MediaType.APPLICATION_JSON)
+                        .content(reading("90", Instant.now().minusSeconds(5)).replace("\"HR\"", "\"GLUCOSE\"")))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/v1/vital-signs").contentType(MediaType.APPLICATION_JSON)
+                        .content(reading("400", Instant.now().minusSeconds(5))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
@@ -86,13 +96,13 @@ class VitalSignsControllerIntegrationTest extends HealthMonitoringRestTestBase {
 
     @Test
     void liveViewClassifiesTheLatestReading() throws Exception {
-        context.defineThreshold(recipient, heartRate, "60", "100", 3);
         mockMvc.perform(post("/api/v1/vital-signs").contentType(MediaType.APPLICATION_JSON)
                 .content(reading("112", Instant.now().minusSeconds(5))));
 
         mockMvc.perform(get("/api/v1/vital-signs/live/{id}", recipient))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.vitalSigns[0].vitalSignTypeCode").value("HR"))
+                .andExpect(jsonPath("$.vitalSigns[0].vitalSignType").value("HR"))
+                .andExpect(jsonPath("$.vitalSigns[0].normalMaximum").value(100))
                 .andExpect(jsonPath("$.vitalSigns[0].classification").value("ABOVE_RANGE"))
                 .andExpect(jsonPath("$.vitalSigns[0].liveSignal").value(true));
     }

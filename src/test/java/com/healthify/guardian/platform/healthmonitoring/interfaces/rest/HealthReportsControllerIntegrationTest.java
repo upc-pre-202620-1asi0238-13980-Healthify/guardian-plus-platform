@@ -1,13 +1,15 @@
 package com.healthify.guardian.platform.healthmonitoring.interfaces.rest;
 
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
+import static com.healthify.guardian.platform.healthmonitoring.testsupport.HealthMonitoringTestContext.NOW;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -27,11 +29,10 @@ class HealthReportsControllerIntegrationTest extends HealthMonitoringRestTestBas
 
     @Test
     void generatesReportForPeriodWithReadings() throws Exception {
-        var heartRate = context.registerType("HR", "Heart rate", "bpm");
-        var device = context.assignDevice(recipient, "GP-0001");
-        var today = LocalDate.now(ZoneOffset.UTC);
-        context.detect(device, heartRate, "70", Instant.now().minusSeconds(60));
-        context.detect(device, heartRate, "80", Instant.now().minusSeconds(30));
+        var device = context.linkDevice(recipient, "GP-0001");
+        var today = LocalDate.ofInstant(NOW, ZoneOffset.UTC);
+        assertThat(context.detect(device, VitalSignType.HR, "70", NOW.minusSeconds(60)).isSuccess()).isTrue();
+        assertThat(context.detect(device, VitalSignType.HR, "80", NOW.minusSeconds(30)).isSuccess()).isTrue();
 
         var response = mockMvc.perform(post("/api/v1/health-reports").contentType(MediaType.APPLICATION_JSON)
                         .content(request(today.minusDays(6), today)))

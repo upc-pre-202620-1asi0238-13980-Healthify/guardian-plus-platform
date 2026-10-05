@@ -1,8 +1,6 @@
 package com.healthify.guardian.platform.healthmonitoring.interfaces.rest;
 
 import com.healthify.guardian.platform.healthmonitoring.application.internal.queryservices.HealthReportQueryServiceImpl;
-import com.healthify.guardian.platform.healthmonitoring.application.internal.queryservices.VitalSignThresholdQueryServiceImpl;
-import com.healthify.guardian.platform.healthmonitoring.application.internal.queryservices.VitalSignTypeQueryServiceImpl;
 import com.healthify.guardian.platform.healthmonitoring.application.internal.queryservices.WearableDeviceQueryServiceImpl;
 import com.healthify.guardian.platform.healthmonitoring.testsupport.HealthMonitoringTestContext;
 import com.healthify.guardian.platform.shared.interfaces.rest.GlobalExceptionHandler;
@@ -19,15 +17,10 @@ abstract class HealthMonitoringRestTestBase {
     protected final HealthMonitoringTestContext context = new HealthMonitoringTestContext();
 
     protected final MockMvc mockMvc = MockMvcBuilders.standaloneSetup(
-                    new VitalSignsController(context.vitalSignCommandService, context.vitalSignQueryService,
-                            new VitalSignTypeQueryServiceImpl(context.vitalSignTypeRepository),
-                            new VitalSignThresholdQueryServiceImpl(context.thresholdRepository), 60),
-                    new VitalSignThresholdsController(context.thresholdCommandService,
-                            new VitalSignThresholdQueryServiceImpl(context.thresholdRepository)),
+                    new VitalSignsController(context.vitalSignCommandService, context.vitalSignQueryService, 60),
                     new WearableDevicesController(context.wearableDeviceCommandService,
                             new WearableDeviceQueryServiceImpl(context.wearableDeviceRepository)),
-                    new VitalSignTypesController(context.vitalSignTypeCommandService,
-                            new VitalSignTypeQueryServiceImpl(context.vitalSignTypeRepository)),
+                    new VitalSignTypesController(),
                     new HealthReportsController(context.healthReportCommandService,
                             new HealthReportQueryServiceImpl(context.healthReportRepository)))
             .setControllerAdvice(new GlobalExceptionHandler())
