@@ -11,6 +11,7 @@ import com.healthify.guardian.platform.healthmonitoring.domain.model.entities.Vi
 import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetLiveVitalSignsByCareRecipientProfileIdQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignTypeCode;
+import com.healthify.guardian.platform.healthmonitoring.infrastructure.configuration.VitalSignTypeCatalogInitializer;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.events.VitalSignAnomalyDetectedIntegrationEvent;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources.LiveVitalSignResource;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources.LiveVitalSignsResource;
@@ -21,6 +22,7 @@ import com.healthify.guardian.platform.shared.application.result.Result;
 import io.cucumber.datatable.DataTable;
 import io.cucumber.java.es.Cuando;
 import io.cucumber.java.es.Dado;
+import io.cucumber.java.ParameterType;
 import io.cucumber.java.es.Entonces;
 
 import java.math.BigDecimal;
@@ -41,13 +43,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class HealthMonitoringStepDefinitions {
 
     private static final Duration LIVE_SIGNAL_WINDOW = Duration.ofSeconds(60);
-    private static final List<String[]> CATALOG = List.of(
-            new String[]{"HR", "Heart rate", "bpm"},
-            new String[]{"BP_SYS", "Systolic blood pressure", "mmHg"},
-            new String[]{"BP_DIA", "Diastolic blood pressure", "mmHg"},
-            new String[]{"SPO2", "Peripheral oxygen saturation", "%"},
-            new String[]{"TEMP", "Body temperature", "°C"},
-            new String[]{"RESP_RATE", "Respiratory rate", "rpm"});
 
     private final HealthMonitoringTestContext context = new HealthMonitoringTestContext();
     private UUID recipient;
@@ -58,6 +53,15 @@ public class HealthMonitoringStepDefinitions {
     private Result<List<VitalSign>, ApplicationError> batchResult;
     private int batchSize;
     private Result<HealthReport, ApplicationError> reportResult;
+
+    /**
+     * Locale-independent decimal: the built-in {@code {decimal}} follows the Spanish locale of the
+     * features and would read {@code 37.8} as {@code 378}.
+     */
+    @ParameterType("-?\\d+(?:\\.\\d+)?")
+    public BigDecimal decimal(String value) {
+        return new BigDecimal(value);
+    }
 
     private VitalSignType type(String code) {
         return context.vitalSignTypeRepository.findByCode(new VitalSignTypeCode(code)).orElseThrow();
@@ -75,17 +79,17 @@ public class HealthMonitoringStepDefinitions {
 
     @Dado("una persona bajo cuidado con una pulsera asignada")
     public void unaPersonaBajoCuidadoConUnaPulseraAsignada() {
-        CATALOG.forEach(entry -> context.registerType(entry[0], entry[1], entry[2]));
+        VitalSignTypeCatalogInitializer.DEFAULT_TYPES.forEach(context::registerType);
         recipient = UUID.randomUUID();
         device = context.assignDevice(recipient, "GP-ESP32-S3-0001");
     }
 
-    @Dado("un umbral de {word} entre {bigdecimal} y {bigdecimal} con {int} lecturas consecutivas")
+    @Dado("un umbral de {word} entre {decimal} y {decimal} con {int} lecturas consecutivas")
     public void unUmbral(String code, BigDecimal minimum, BigDecimal maximum, int hits) {
         context.defineThreshold(recipient, type(code), minimum.toPlainString(), maximum.toPlainString(), hits);
     }
 
-    @Cuando("la pulsera transmite una lectura de {word} de {bigdecimal}")
+    @Cuando("la pulsera transmite una lectura de {word} de {decimal}")
     public void laPulseraTransmiteUnaLectura(String code, BigDecimal value) {
         transmit(code, value);
     }
@@ -95,7 +99,7 @@ public class HealthMonitoringStepDefinitions {
         Arrays.stream(values.split(",")).map(String::strip).map(BigDecimal::new).forEach(value -> transmit(code, value));
     }
 
-    @Dado("la última lectura de {word} de {bigdecimal} fue transmitida hace {int} minutos")
+    @Dado("la última lectura de {word} de {decimal} fue transmitida hace {int} minutos")
     public void laUltimaLecturaFueTransmitidaHace(String code, BigDecimal value, int minutes) {
         var result = context.vitalSignCommandService.handle(reading(code, value, minutes * 60L));
         assertThat(result.isSuccess()).isTrue();
@@ -118,7 +122,7 @@ public class HealthMonitoringStepDefinitions {
                 .orElseThrow(() -> new AssertionError("No live reading of " + code));
     }
 
-    @Entonces("el sistema muestra {word} con valor {bigdecimal} clasificado como {word}")
+    @Entonces("el sistema muestra {word} con valor {decimal} clasificado como {word}")
     public void elSistemaMuestraClasificado(String code, BigDecimal value, String classification) {
         var live = liveReading(code);
         assertThat(live.value()).isEqualByComparingTo(value);
