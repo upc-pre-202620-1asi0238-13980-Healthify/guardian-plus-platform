@@ -1,8 +1,7 @@
 package com.healthify.guardian.platform.healthmonitoring.application.internal.eventhandlers;
 
-import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.WearableDevice;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.events.VitalSignAnomalyDetectedIntegrationEvent;
 import com.healthify.guardian.platform.healthmonitoring.testsupport.HealthMonitoringTestContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,20 +19,17 @@ class VitalSignsThresholdsEvaluatedEventHandlerTest {
 
     private final HealthMonitoringTestContext context = new HealthMonitoringTestContext();
     private final UUID recipient = UUID.randomUUID();
-    private VitalSignType heartRate;
     private WearableDevice device;
     private int secondsAgo = 600;
 
     @BeforeEach
     void setUp() {
-        heartRate = context.registerType("HR", "Heart rate", "bpm");
-        device = context.assignDevice(recipient, "GP-0001");
-        context.defineThreshold(recipient, heartRate, "60", "100", 3);
+        device = context.linkDevice(recipient, "GP-0001");
     }
 
     private void read(String... values) {
         for (var value : values) {
-            context.detect(device, heartRate, value, NOW.minusSeconds(secondsAgo--));
+            context.detect(device, VitalSignType.HR, value, NOW.minusSeconds(secondsAgo--));
         }
     }
 
@@ -67,6 +63,9 @@ class VitalSignsThresholdsEvaluatedEventHandlerTest {
         assertThat(anomaly.classification()).isEqualTo("ABOVE_RANGE");
         assertThat(anomaly.value()).isEqualByComparingTo("130");
         assertThat(anomaly.careRecipientProfileId()).isEqualTo(recipient);
+        assertThat(anomaly.minimumValue()).isEqualByComparingTo("60");
+        assertThat(anomaly.maximumValue()).isEqualByComparingTo("100");
+        assertThat(anomaly.consecutiveReadings()).isEqualTo(3);
     }
 
     @Test
@@ -86,27 +85,24 @@ class VitalSignsThresholdsEvaluatedEventHandlerTest {
     }
 
     @Test
-    void readingsWithoutPersonalizedThresholdAreEvaluatedAgainstTheNormalRangeOfTheirType() {
-        var spo2 = context.registerType("SPO2", "Oxygen saturation", "%");
+    void eachVitalSignTypeIsEvaluatedAgainstItsOwnNormalRange() {
         for (int i = 0; i < 3; i++) {
-            context.detect(device, spo2, "85", NOW.minusSeconds(100 - i));
+            context.detect(device, VitalSignType.SPO2, "85", NOW.minusSeconds(100 - i));
         }
 
         assertThat(anomalies()).isEqualTo(1);
         var anomaly = context.eventsOfType(VitalSignAnomalyDetectedIntegrationEvent.class).getLast();
+        assertThat(anomaly.vitalSignTypeCode()).isEqualTo("SPO2");
         assertThat(anomaly.classification()).isEqualTo("BELOW_RANGE");
         assertThat(anomaly.minimumValue()).isEqualByComparingTo("92");
     }
 
     @Test
-    void deactivatedThresholdIsNotReplacedByTheNormalRange() {
-        var threshold = context.thresholdRepository.findByCareRecipientProfileIdAndVitalSignTypeId(
-                new CareRecipientProfileId(recipient), heartRate.getId()).orElseThrow();
-        threshold.deactivate();
-        context.thresholdRepository.save(threshold);
+    void streaksOfTheSameCareRecipientAndTypeShareTheThresholdReference() {
+        read("120", "125", "130", "80", "40", "45", "42");
 
-        read("120", "125", "130");
-
-        assertThat(anomalies()).isZero();
+        var anomalies = context.eventsOfType(VitalSignAnomalyDetectedIntegrationEvent.class);
+        assertThat(anomalies.getFirst().vitalSignThresholdId()).isEqualTo(anomalies.getLast().vitalSignThresholdId());
+        assertThat(anomalies.getFirst().vitalSignTypeId()).isNotNull();
     }
 }

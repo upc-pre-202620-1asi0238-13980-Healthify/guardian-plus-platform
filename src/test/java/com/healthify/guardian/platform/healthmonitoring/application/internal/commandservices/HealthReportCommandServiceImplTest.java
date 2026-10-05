@@ -3,6 +3,7 @@ package com.healthify.guardian.platform.healthmonitoring.application.internal.co
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.CompileWeeklySummaryCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.GenerateHealthReportCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.HealthReportType;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.events.HealthReportCompiledIntegrationEvent;
 import com.healthify.guardian.platform.healthmonitoring.testsupport.HealthMonitoringTestContext;
 import com.healthify.guardian.platform.shared.application.result.Result;
@@ -40,9 +41,8 @@ class HealthReportCommandServiceImplTest {
 
     @Test
     void weeklySummaryCoversTheLastSevenDaysAndIsAnnounced() {
-        var heartRate = context.registerType("HR", "Heart rate", "bpm");
-        var device = context.assignDevice(recipient, "GP-0001");
-        context.detect(device, heartRate, "72", NOW.minusSeconds(3600));
+        var device = context.linkDevice(recipient, "GP-0001");
+        context.detect(device, VitalSignType.HR, "72", NOW.minusSeconds(3600));
 
         var report = HealthMonitoringTestContext.value(
                 context.healthReportCommandService.handle(new CompileWeeklySummaryCommand(recipient)));

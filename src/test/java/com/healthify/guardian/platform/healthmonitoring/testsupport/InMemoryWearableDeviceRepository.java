@@ -39,7 +39,7 @@ public class InMemoryWearableDeviceRepository implements WearableDeviceRepositor
     }
 
     @Override
-    public List<WearableDevice> findAllAssigned() {
-        return store.findAll(WearableDevice::isAssigned);
+    public List<WearableDevice> findAll() {
+        return store.findAll(device -> true);
     }
 }

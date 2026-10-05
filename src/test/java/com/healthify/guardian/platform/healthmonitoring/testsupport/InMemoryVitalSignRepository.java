@@ -4,7 +4,7 @@ import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.DateRange;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignId;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignTypeId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.WearableDeviceId;
 import com.healthify.guardian.platform.healthmonitoring.domain.repositories.VitalSignRepository;
 import org.springframework.context.ApplicationEventPublisher;
@@ -39,17 +39,17 @@ public class InMemoryVitalSignRepository implements VitalSignRepository {
     }
 
     @Override
-    public Optional<VitalSign> findLatestByCareRecipientProfileIdAndVitalSignTypeId(
-            CareRecipientProfileId careRecipientProfileId, VitalSignTypeId vitalSignTypeId) {
-        return byRecipientAndType(careRecipientProfileId, vitalSignTypeId).stream()
+    public Optional<VitalSign> findLatestByCareRecipientProfileIdAndVitalSignType(
+            CareRecipientProfileId careRecipientProfileId, VitalSignType vitalSignType) {
+        return byRecipientAndType(careRecipientProfileId, vitalSignType).stream()
                 .filter(VitalSign::isEmitted)
                 .findFirst();
     }
 
     @Override
-    public List<VitalSign> findRecentByCareRecipientProfileIdAndVitalSignTypeId(
-            CareRecipientProfileId careRecipientProfileId, VitalSignTypeId vitalSignTypeId, int count) {
-        return byRecipientAndType(careRecipientProfileId, vitalSignTypeId).stream().limit(count).toList();
+    public List<VitalSign> findRecentByCareRecipientProfileIdAndVitalSignType(
+            CareRecipientProfileId careRecipientProfileId, VitalSignType vitalSignType, int count) {
+        return byRecipientAndType(careRecipientProfileId, vitalSignType).stream().limit(count).toList();
     }
 
     @Override
@@ -62,10 +62,10 @@ public class InMemoryVitalSignRepository implements VitalSignRepository {
     }
 
     @Override
-    public boolean existsByWearableDeviceIdAndVitalSignTypeIdAndMeasuredAt(
-            WearableDeviceId wearableDeviceId, VitalSignTypeId vitalSignTypeId, Instant measuredAt) {
+    public boolean existsByWearableDeviceIdAndVitalSignTypeAndMeasuredAt(
+            WearableDeviceId wearableDeviceId, VitalSignType vitalSignType, Instant measuredAt) {
         return !store.findAll(vitalSign -> vitalSign.getWearableDeviceId().equals(wearableDeviceId)
-                && vitalSign.getVitalSignTypeId().equals(vitalSignTypeId)
+                && vitalSign.getVitalSignType() == vitalSignType
                 && vitalSign.getMeasuredAt().equals(measuredAt)).isEmpty();
     }
 
@@ -73,9 +73,9 @@ public class InMemoryVitalSignRepository implements VitalSignRepository {
         return store.findAll(vitalSign -> true);
     }
 
-    private List<VitalSign> byRecipientAndType(CareRecipientProfileId careRecipientProfileId, VitalSignTypeId vitalSignTypeId) {
+    private List<VitalSign> byRecipientAndType(CareRecipientProfileId careRecipientProfileId, VitalSignType vitalSignType) {
         return store.findAll(vitalSign -> vitalSign.getCareRecipientProfileId().equals(careRecipientProfileId)
-                        && vitalSign.getVitalSignTypeId().equals(vitalSignTypeId))
+                        && vitalSign.getVitalSignType() == vitalSignType)
                 .stream().sorted(Comparator.comparing(VitalSign::getMeasuredAt).reversed()).toList();
     }
 }
