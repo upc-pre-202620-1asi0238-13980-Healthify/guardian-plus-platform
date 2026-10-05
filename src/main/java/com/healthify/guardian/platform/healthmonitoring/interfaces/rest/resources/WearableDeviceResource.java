@@ -11,7 +11,6 @@ public record WearableDeviceResource(
         UUID careRecipientProfileId,
         String serialNumber,
         String deviceType,
-        String status,
-        Instant assignedAt
+        Instant linkedAt
 ) {
 }

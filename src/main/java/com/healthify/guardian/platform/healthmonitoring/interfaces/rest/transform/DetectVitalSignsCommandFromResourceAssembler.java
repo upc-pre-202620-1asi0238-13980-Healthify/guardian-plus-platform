@@ -18,7 +18,7 @@ public final class DetectVitalSignsCommandFromResourceAssembler {
         return new DetectVitalSignsCommand(
                 resource.wearableDeviceId(),
                 resource.careRecipientProfileId(),
-                resource.vitalSignTypeId(),
+                resource.vitalSignType(),
                 resource.value(),
                 resource.measuredAt(),
                 receivedAt);

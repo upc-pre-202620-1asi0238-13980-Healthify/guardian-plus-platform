@@ -17,7 +17,6 @@ public final class WearableDeviceResourceFromEntityAssembler {
                 device.getCareRecipientProfileId().value(),
                 device.getSerialNumber().value(),
                 device.getDeviceType().name(),
-                device.getStatus().name(),
-                device.getAssignedAt());
+                device.getLinkedAt());
     }
 }

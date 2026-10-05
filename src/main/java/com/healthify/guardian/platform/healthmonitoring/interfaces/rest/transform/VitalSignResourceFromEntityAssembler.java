@@ -16,7 +16,7 @@ public final class VitalSignResourceFromEntityAssembler {
                 vitalSign.getId().value(),
                 vitalSign.getWearableDeviceId().value(),
                 vitalSign.getCareRecipientProfileId().value(),
-                vitalSign.getVitalSignTypeId().value(),
+                vitalSign.getVitalSignType().code(),
                 vitalSign.getValue().value(),
                 vitalSign.getMeasuredAt(),
                 vitalSign.getReceivedAt(),

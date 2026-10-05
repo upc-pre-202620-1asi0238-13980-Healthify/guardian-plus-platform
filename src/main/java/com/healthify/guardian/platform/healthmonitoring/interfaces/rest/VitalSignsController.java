@@ -2,11 +2,7 @@ package com.healthify.guardian.platform.healthmonitoring.interfaces.rest;
 
 import com.healthify.guardian.platform.healthmonitoring.application.commandservices.VitalSignCommandService;
 import com.healthify.guardian.platform.healthmonitoring.application.queryservices.VitalSignQueryService;
-import com.healthify.guardian.platform.healthmonitoring.application.queryservices.VitalSignThresholdQueryService;
-import com.healthify.guardian.platform.healthmonitoring.application.queryservices.VitalSignTypeQueryService;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.EmitVitalSignsCommand;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetActiveVitalSignThresholdsByCareRecipientProfileIdQuery;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetAllVitalSignTypesQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetLiveVitalSignsByCareRecipientProfileIdQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetVitalSignsByCareRecipientProfileIdAndPeriodQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
@@ -63,39 +59,33 @@ public class VitalSignsController {
 
     private final VitalSignCommandService vitalSignCommandService;
     private final VitalSignQueryService vitalSignQueryService;
-    private final VitalSignTypeQueryService vitalSignTypeQueryService;
-    private final VitalSignThresholdQueryService vitalSignThresholdQueryService;
     private final Duration liveSignalWindow;
 
     public VitalSignsController(VitalSignCommandService vitalSignCommandService,
                                 VitalSignQueryService vitalSignQueryService,
-                                VitalSignTypeQueryService vitalSignTypeQueryService,
-                                VitalSignThresholdQueryService vitalSignThresholdQueryService,
                                 @Value("${health-monitoring.live.signal-window-seconds:60}") long liveSignalWindowSeconds) {
         this.vitalSignCommandService = vitalSignCommandService;
         this.vitalSignQueryService = vitalSignQueryService;
-        this.vitalSignTypeQueryService = vitalSignTypeQueryService;
-        this.vitalSignThresholdQueryService = vitalSignThresholdQueryService;
         this.liveSignalWindow = Duration.ofSeconds(liveSignalWindowSeconds);
     }
 
     @PostMapping
     @Operation(
             summary = "Detect a vital sign",
-            description = "Registers a reading sent by an assigned wearable device. The reading is then emitted for the " +
-                    "live view and evaluated against the threshold in force; consecutive out-of-range readings raise a " +
-                    "vital sign anomaly for Emergency & Alerting."
+            description = "Registers a reading sent by a linked wearable device. The reading is then emitted for the " +
+                    "live view and evaluated against the normal range of its type; 3 consecutive out-of-range readings " +
+                    "raise a vital sign anomaly for Emergency & Alerting."
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Vital sign detected",
                     content = @Content(schema = @Schema(implementation = VitalSignResource.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request data",
+            @ApiResponse(responseCode = "400", description = "Invalid request data, unknown type or physically impossible value",
                     content = @Content(schema = @Schema(implementation = ErrorResource.class))),
-            @ApiResponse(responseCode = "404", description = "Wearable device or vital sign type not found",
+            @ApiResponse(responseCode = "404", description = "Wearable device not found",
                     content = @Content(schema = @Schema(implementation = ErrorResource.class))),
             @ApiResponse(responseCode = "409", description = "The same reading was already stored",
                     content = @Content(schema = @Schema(implementation = ErrorResource.class))),
-            @ApiResponse(responseCode = "422", description = "The device is not assigned to the care recipient",
+            @ApiResponse(responseCode = "422", description = "The device is not linked to the care recipient",
                     content = @Content(schema = @Schema(implementation = ErrorResource.class)))
     })
     public ResponseEntity<?> detectVitalSign(@Valid @RequestBody DetectVitalSignsResource resource) {
@@ -174,7 +164,7 @@ public class VitalSignsController {
     @Operation(
             summary = "Get live vital signs",
             description = "Retrieves the latest emitted reading of every vital sign type of a care recipient, " +
-                    "classified against the threshold in force (US01-US05). When the latest reading is older than the " +
+                    "classified against the normal range of its type (US01-US05). When the latest reading is older than the " +
                     "live signal window it is still returned, flagged without live signal."
     )
     @ApiResponses(value = {
@@ -186,11 +176,8 @@ public class VitalSignsController {
             UUID careRecipientProfileId) {
         var recipient = new CareRecipientProfileId(careRecipientProfileId);
         var latest = vitalSignQueryService.handle(new GetLiveVitalSignsByCareRecipientProfileIdQuery(recipient));
-        var types = vitalSignTypeQueryService.handle(new GetAllVitalSignTypesQuery());
-        var thresholds = vitalSignThresholdQueryService.handle(
-                new GetActiveVitalSignThresholdsByCareRecipientProfileIdQuery(recipient));
         return ResponseEntity.ok(LiveVitalSignsResourceFromEntityAssembler.toResourceFromEntities(
-                careRecipientProfileId, latest, types, thresholds, liveSignalWindow, Instant.now()));
+                careRecipientProfileId, latest, liveSignalWindow, Instant.now()));
     }
 
     @GetMapping("/history/{careRecipientProfileId}")

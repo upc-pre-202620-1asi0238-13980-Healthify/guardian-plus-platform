@@ -11,7 +11,7 @@ public record VitalSignResource(
         UUID id,
         UUID wearableDeviceId,
         UUID careRecipientProfileId,
-        UUID vitalSignTypeId,
+        String vitalSignType,
         BigDecimal value,
         Instant measuredAt,
         Instant receivedAt,

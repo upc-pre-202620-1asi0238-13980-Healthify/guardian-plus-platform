@@ -1,9 +1,6 @@
 package com.healthify.guardian.platform.healthmonitoring.interfaces.rest.transform;
 
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSign;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSignThreshold;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSignType;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignTypeId;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources.LiveVitalSignResource;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources.LiveVitalSignsResource;
 
@@ -11,12 +8,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
- * Assembler building the live view of a care recipient from its latest readings, the type catalog
- * and the thresholds in force.
+ * Assembler building the live view of a care recipient from its latest readings, each one
+ * classified against the normal range of its vital sign type.
  */
 public final class LiveVitalSignsResourceFromEntityAssembler {
 
@@ -28,32 +23,26 @@ public final class LiveVitalSignsResourceFromEntityAssembler {
      */
     public static LiveVitalSignsResource toResourceFromEntities(UUID careRecipientProfileId,
                                                                 List<VitalSign> latestReadings,
-                                                                List<VitalSignType> types,
-                                                                List<VitalSignThreshold> activeThresholds,
                                                                 Duration liveSignalWindow,
                                                                 Instant now) {
-        var typesById = types.stream().collect(Collectors.toMap(VitalSignType::getId, Function.identity()));
-        var thresholdsByType = activeThresholds.stream()
-                .collect(Collectors.toMap(VitalSignThreshold::getVitalSignTypeId, Function.identity(), (a, b) -> a));
         var vitalSigns = latestReadings.stream()
-                .map(reading -> toLiveResource(reading, typesById.get(reading.getVitalSignTypeId()),
-                        thresholdsByType.get(reading.getVitalSignTypeId()), liveSignalWindow, now))
+                .map(reading -> toLiveResource(reading, liveSignalWindow, now))
                 .toList();
         return new LiveVitalSignsResource(careRecipientProfileId, now, vitalSigns);
     }
 
-    private static LiveVitalSignResource toLiveResource(VitalSign reading, VitalSignType type,
-                                                        VitalSignThreshold threshold, Duration window, Instant now) {
-        VitalSignTypeId typeId = reading.getVitalSignTypeId();
+    private static LiveVitalSignResource toLiveResource(VitalSign reading, Duration window, Instant now) {
+        var type = reading.getVitalSignType();
         return new LiveVitalSignResource(
                 reading.getId().value(),
-                typeId.value(),
-                type == null ? null : type.getCode().value(),
-                type == null ? null : type.getName(),
-                type == null ? null : type.getUnit(),
+                type.code(),
+                type.displayName(),
+                type.unit(),
                 reading.getValue().value(),
                 reading.getMeasuredAt(),
-                threshold == null ? null : threshold.classify(reading.getValue()).name(),
+                type.normalRange().minimum(),
+                type.normalRange().maximum(),
+                type.classify(reading.getValue()).name(),
                 !reading.getMeasuredAt().isBefore(now.minus(window)));
     }
 }

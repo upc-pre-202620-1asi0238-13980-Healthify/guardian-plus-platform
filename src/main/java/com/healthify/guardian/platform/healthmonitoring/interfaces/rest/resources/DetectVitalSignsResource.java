@@ -1,6 +1,7 @@
 package com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
@@ -19,9 +20,10 @@ public record DetectVitalSignsResource(
         @Schema(description = "Monitored care recipient")
         UUID careRecipientProfileId,
 
-        @NotNull(message = "{vital-sign-type.id.invalid}")
-        @Schema(description = "Vital sign type from the catalog (GET /api/v1/vital-sign-types)")
-        UUID vitalSignTypeId,
+        @NotBlank(message = "{vital-sign.type.invalid}")
+        @Schema(description = "Vital sign type code (GET /api/v1/vital-sign-types)",
+                allowableValues = {"HR", "BP_SYS", "BP_DIA", "SPO2", "TEMP", "RESP_RATE"}, example = "HR")
+        String vitalSignType,
 
         @NotNull(message = "{vital-sign.value.invalid}")
         @Schema(description = "Measured value, in the unit of its type", example = "72")

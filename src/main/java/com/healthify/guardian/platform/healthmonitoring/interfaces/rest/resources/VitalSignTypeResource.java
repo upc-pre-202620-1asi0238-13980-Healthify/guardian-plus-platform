@@ -1,13 +1,11 @@
 package com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 /**
- * Response payload of a vital sign type.
+ * Response payload of a vital sign type with its normal range and physical limits.
  */
 public record VitalSignTypeResource(
-        UUID id,
         String code,
         String name,
         String unit,

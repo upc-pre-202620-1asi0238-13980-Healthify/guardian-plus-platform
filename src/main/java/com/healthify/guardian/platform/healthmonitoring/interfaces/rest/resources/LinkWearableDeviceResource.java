@@ -7,9 +7,9 @@ import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
 /**
- * Request payload assigning a wearable device to a care recipient.
+ * Request payload linking a wearable device to a care recipient.
  */
-public record AssignWearableDeviceResource(
+public record LinkWearableDeviceResource(
         @NotNull(message = "{care-recipient-profile.id.invalid}")
         UUID careRecipientProfileId,
 

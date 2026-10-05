@@ -2,12 +2,11 @@ package com.healthify.guardian.platform.healthmonitoring.interfaces.rest;
 
 import com.healthify.guardian.platform.healthmonitoring.application.commandservices.WearableDeviceCommandService;
 import com.healthify.guardian.platform.healthmonitoring.application.queryservices.WearableDeviceQueryService;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.DeactivateWearableDeviceCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetWearableDevicesByCareRecipientProfileIdQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
-import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources.AssignWearableDeviceResource;
+import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources.LinkWearableDeviceResource;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources.WearableDeviceResource;
-import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.transform.AssignWearableDeviceCommandFromResourceAssembler;
+import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.transform.LinkWearableDeviceCommandFromResourceAssembler;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.transform.WearableDeviceResourceFromEntityAssembler;
 import com.healthify.guardian.platform.shared.interfaces.rest.resources.ErrorResource;
 import com.healthify.guardian.platform.shared.interfaces.rest.transform.ResponseEntityAssembler;
@@ -22,7 +21,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,11 +34,11 @@ import java.util.UUID;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
- * REST controller for the wearable devices assigned to care recipients.
+ * REST controller for the wearable devices linked to care recipients.
  */
 @RestController
 @RequestMapping(value = "/api/v1/wearable-devices", produces = APPLICATION_JSON_VALUE)
-@Tag(name = "Wearable Devices", description = "Wearable device assignment endpoints")
+@Tag(name = "Wearable Devices", description = "Wearable device linking endpoints")
 public class WearableDevicesController {
 
     private final WearableDeviceCommandService wearableDeviceCommandService;
@@ -53,22 +51,22 @@ public class WearableDevicesController {
     }
 
     @PostMapping
-    @Operation(summary = "Assign a wearable device", description = "Assigns a new wearable device to a care recipient.")
+    @Operation(summary = "Link a wearable device", description = "Links a wearable device to a care recipient so its readings are accepted.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Device assigned",
+            @ApiResponse(responseCode = "201", description = "Device linked",
                     content = @Content(schema = @Schema(implementation = WearableDeviceResource.class))),
             @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content(schema = @Schema(implementation = ErrorResource.class))),
             @ApiResponse(responseCode = "409", description = "Serial number already registered", content = @Content(schema = @Schema(implementation = ErrorResource.class)))
     })
-    public ResponseEntity<?> assignWearableDevice(@Valid @RequestBody AssignWearableDeviceResource resource) {
+    public ResponseEntity<?> linkWearableDevice(@Valid @RequestBody LinkWearableDeviceResource resource) {
         var result = wearableDeviceCommandService.handle(
-                AssignWearableDeviceCommandFromResourceAssembler.toCommandFromResource(resource));
+                LinkWearableDeviceCommandFromResourceAssembler.toCommandFromResource(resource));
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result, WearableDeviceResourceFromEntityAssembler::toResourceFromEntity, HttpStatus.CREATED);
     }
 
     @GetMapping("/care-recipient/{careRecipientProfileId}")
-    @Operation(summary = "List wearable devices", description = "Lists the devices ever assigned to a care recipient.")
+    @Operation(summary = "List wearable devices", description = "Lists the devices linked to a care recipient.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Devices retrieved",
                     content = @Content(array = @ArraySchema(schema = @Schema(implementation = WearableDeviceResource.class))))
@@ -80,20 +78,5 @@ public class WearableDevicesController {
         return ResponseEntity.ok(wearableDeviceQueryService.handle(query).stream()
                 .map(WearableDeviceResourceFromEntityAssembler::toResourceFromEntity)
                 .toList());
-    }
-
-    @DeleteMapping("/{deviceId}")
-    @Operation(summary = "Deactivate a wearable device", description = "Takes an assigned device out of service; its readings are no longer accepted.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Device deactivated",
-                    content = @Content(schema = @Schema(implementation = WearableDeviceResource.class))),
-            @ApiResponse(responseCode = "404", description = "Device not found", content = @Content(schema = @Schema(implementation = ErrorResource.class))),
-            @ApiResponse(responseCode = "422", description = "Device is not assigned", content = @Content(schema = @Schema(implementation = ErrorResource.class)))
-    })
-    public ResponseEntity<?> deactivateWearableDevice(
-            @PathVariable @Parameter(description = "Wearable device unique identifier", required = true) UUID deviceId) {
-        var result = wearableDeviceCommandService.handle(new DeactivateWearableDeviceCommand(deviceId));
-        return ResponseEntityAssembler.toResponseEntityFromResult(
-                result, WearableDeviceResourceFromEntityAssembler::toResourceFromEntity, HttpStatus.OK);
     }
 }
