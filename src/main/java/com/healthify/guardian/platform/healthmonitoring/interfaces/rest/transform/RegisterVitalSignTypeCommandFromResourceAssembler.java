@@ -12,6 +12,8 @@ public final class RegisterVitalSignTypeCommandFromResourceAssembler {
     }
 
     public static RegisterVitalSignTypeCommand toCommandFromResource(RegisterVitalSignTypeResource resource) {
-        return new RegisterVitalSignTypeCommand(resource.code(), resource.name(), resource.unit());
+        return new RegisterVitalSignTypeCommand(resource.code(), resource.name(), resource.unit(),
+                resource.normalMinimum(), resource.normalMaximum(),
+                resource.physicalMinimum(), resource.physicalMaximum());
     }
 }

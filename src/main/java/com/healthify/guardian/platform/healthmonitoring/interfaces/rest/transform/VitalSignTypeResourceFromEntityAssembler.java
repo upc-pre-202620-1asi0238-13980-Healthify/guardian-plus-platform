@@ -12,10 +12,16 @@ public final class VitalSignTypeResourceFromEntityAssembler {
     }
 
     public static VitalSignTypeResource toResourceFromEntity(VitalSignType vitalSignType) {
+        var normal = vitalSignType.getNormalRange();
+        var limits = vitalSignType.getPhysicalLimits();
         return new VitalSignTypeResource(
                 vitalSignType.getId().value(),
                 vitalSignType.getCode().value(),
                 vitalSignType.getName(),
-                vitalSignType.getUnit());
+                vitalSignType.getUnit(),
+                normal == null ? null : normal.minimum(),
+                normal == null ? null : normal.maximum(),
+                limits == null ? null : limits.minimum(),
+                limits == null ? null : limits.maximum());
     }
 }

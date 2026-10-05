@@ -1,5 +1,6 @@
 package com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -9,6 +10,10 @@ public record VitalSignTypeResource(
         UUID id,
         String code,
         String name,
-        String unit
+        String unit,
+        BigDecimal normalMinimum,
+        BigDecimal normalMaximum,
+        BigDecimal physicalMinimum,
+        BigDecimal physicalMaximum
 ) {
 }
