@@ -2,7 +2,7 @@ package com.healthify.guardian.platform.healthmonitoring.domain.model.events;
 
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignId;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignTypeId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 
 import java.time.Instant;
 
@@ -12,6 +12,6 @@ import java.time.Instant;
 public record VitalSignsDetectedEvent(
         VitalSignId vitalSignId,
         CareRecipientProfileId careRecipientProfileId,
-        VitalSignTypeId vitalSignTypeId,
+        VitalSignType vitalSignType,
         Instant measuredAt) {
 }

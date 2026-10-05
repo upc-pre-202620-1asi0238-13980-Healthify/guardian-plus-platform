@@ -6,7 +6,7 @@ import com.healthify.guardian.platform.healthmonitoring.domain.model.events.Vita
 import com.healthify.guardian.platform.healthmonitoring.domain.model.events.VitalSignsThresholdsEvaluatedEvent;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignId;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignTypeId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignValue;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.WearableDeviceId;
 import com.healthify.guardian.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
@@ -17,7 +17,8 @@ import java.time.Instant;
 /**
  * Aggregate root representing the capture of a single vital sign type of a care recipient at a
  * given instant (one row, one metric). Its lifecycle follows the Design-Level EventStorming:
- * it is detected, then emitted for live consumption, then evaluated against the threshold in force.
+ * it is detected, then emitted for live consumption, then evaluated against the normal range of its
+ * {@link VitalSignType}.
  */
 @Getter
 public class VitalSign extends AbstractDomainAggregateRoot<VitalSign> {
@@ -27,12 +28,12 @@ public class VitalSign extends AbstractDomainAggregateRoot<VitalSign> {
     private static final String MEASURED_AFTER_RECEIVED_KEY = "vital-sign.measured-at.after-received-at";
     private static final String ALREADY_EMITTED_KEY = "vital-sign.already-emitted";
     private static final String NOT_EMITTED_KEY = "vital-sign.not-emitted";
-    private static final String THRESHOLD_MISMATCH_KEY = "vital-sign.threshold.mismatch";
+    private static final String OUTSIDE_PHYSICAL_LIMITS_KEY = "vital-sign.value.outside-physical-limits";
 
     private VitalSignId id;
     private WearableDeviceId wearableDeviceId;
     private CareRecipientProfileId careRecipientProfileId;
-    private VitalSignTypeId vitalSignTypeId;
+    private VitalSignType vitalSignType;
     private VitalSignValue value;
     private Instant measuredAt;
     private Instant receivedAt;
@@ -43,7 +44,8 @@ public class VitalSign extends AbstractDomainAggregateRoot<VitalSign> {
     }
 
     /**
-     * Detects a new reading. Registers {@link VitalSignsDetectedEvent}.
+     * Detects a new reading. Registers {@link VitalSignsDetectedEvent}. A value outside the physical
+     * limits of its type cannot be real and is rejected as a sensor error.
      *
      * @param command the reading sent by the wearable device
      */
@@ -60,11 +62,14 @@ public class VitalSign extends AbstractDomainAggregateRoot<VitalSign> {
         this.id = VitalSignId.generate();
         this.wearableDeviceId = new WearableDeviceId(command.wearableDeviceId());
         this.careRecipientProfileId = new CareRecipientProfileId(command.careRecipientProfileId());
-        this.vitalSignTypeId = new VitalSignTypeId(command.vitalSignTypeId());
+        this.vitalSignType = VitalSignType.fromCode(command.vitalSignType());
         this.value = new VitalSignValue(command.value());
+        if (!vitalSignType.isPhysicallyPossible(value)) {
+            throw new IllegalArgumentException(OUTSIDE_PHYSICAL_LIMITS_KEY);
+        }
         this.measuredAt = command.measuredAt();
         this.receivedAt = command.receivedAt();
-        registerDomainEvent(new VitalSignsDetectedEvent(id, careRecipientProfileId, vitalSignTypeId, measuredAt));
+        registerDomainEvent(new VitalSignsDetectedEvent(id, careRecipientProfileId, vitalSignType, measuredAt));
     }
 
     /**
@@ -77,29 +82,24 @@ public class VitalSign extends AbstractDomainAggregateRoot<VitalSign> {
             throw new IllegalStateException(ALREADY_EMITTED_KEY);
         }
         this.emittedAt = now;
-        registerDomainEvent(new VitalSignsEmittedEvent(id, careRecipientProfileId, vitalSignTypeId, now));
+        registerDomainEvent(new VitalSignsEmittedEvent(id, careRecipientProfileId, vitalSignType, now));
     }
 
     /**
-     * Evaluates the reading against the threshold in force for its care recipient and type.
+     * Evaluates the reading against the normal range of its vital sign type.
      * Registers {@link VitalSignsThresholdsEvaluatedEvent}.
      *
-     * @param threshold the active threshold of the same care recipient and type
-     * @param now       the evaluation instant
-     * @return {@code true} when the reading falls outside the clinical range
+     * @param now the evaluation instant
+     * @return {@code true} when the reading falls outside the normal range
      */
-    public boolean evaluateThresholds(VitalSignThreshold threshold, Instant now) {
+    public boolean evaluateThresholds(Instant now) {
         if (!isEmitted()) {
             throw new IllegalStateException(NOT_EMITTED_KEY);
         }
-        if (!threshold.getCareRecipientProfileId().equals(careRecipientProfileId)
-                || !threshold.getVitalSignTypeId().equals(vitalSignTypeId)) {
-            throw new IllegalArgumentException(THRESHOLD_MISMATCH_KEY);
-        }
-        var classification = threshold.classify(value);
+        var classification = vitalSignType.classify(value);
         var hasDeviation = classification.isOutOfRange();
         registerDomainEvent(new VitalSignsThresholdsEvaluatedEvent(
-                id, careRecipientProfileId, vitalSignTypeId, threshold.getId(), classification, hasDeviation, now));
+                id, careRecipientProfileId, vitalSignType, classification, hasDeviation, now));
         return hasDeviation;
     }
 
@@ -120,8 +120,8 @@ public class VitalSign extends AbstractDomainAggregateRoot<VitalSign> {
         this.careRecipientProfileId = careRecipientProfileId;
     }
 
-    public void setVitalSignTypeId(VitalSignTypeId vitalSignTypeId) {
-        this.vitalSignTypeId = vitalSignTypeId;
+    public void setVitalSignType(VitalSignType vitalSignType) {
+        this.vitalSignType = vitalSignType;
     }
 
     public void setValue(VitalSignValue value) {
