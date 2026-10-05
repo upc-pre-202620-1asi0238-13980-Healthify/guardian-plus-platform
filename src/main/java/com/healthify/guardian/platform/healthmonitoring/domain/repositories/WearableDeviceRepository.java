@@ -22,7 +22,7 @@ public interface WearableDeviceRepository {
     Optional<WearableDevice> findBySerialNumber(SerialNumber serialNumber);
 
     /**
-     * Retrieves every device currently assigned, used to know which care recipients are monitored.
+     * Retrieves every linked device, used to know which care recipients are monitored.
      */
-    List<WearableDevice> findAllAssigned();
+    List<WearableDevice> findAll();
 }

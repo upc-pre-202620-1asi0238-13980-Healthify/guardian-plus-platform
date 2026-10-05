@@ -2,7 +2,6 @@ package com.healthify.guardian.platform.healthmonitoring.infrastructure.persiste
 
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.WearableDevice;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.DeviceStatus;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.SerialNumber;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.WearableDeviceId;
 import com.healthify.guardian.platform.healthmonitoring.domain.repositories.WearableDeviceRepository;
@@ -54,8 +53,8 @@ public class WearableDeviceRepositoryImpl implements WearableDeviceRepository {
     }
 
     @Override
-    public List<WearableDevice> findAllAssigned() {
-        return persistenceRepository.findByStatus(DeviceStatus.ASSIGNED)
+    public List<WearableDevice> findAll() {
+        return persistenceRepository.findAll()
                 .stream().map(WearableDevicePersistenceAssembler::toDomainFromPersistence).toList();
     }
 }

@@ -1,6 +1,7 @@
 package com.healthify.guardian.platform.healthmonitoring.infrastructure.persistence.jpa.repositories;
 
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.infrastructure.persistence.jpa.entities.VitalSignPersistenceEntity;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,14 +18,14 @@ import java.util.UUID;
 @Repository
 public interface VitalSignPersistenceRepository extends JpaRepository<VitalSignPersistenceEntity, UUID> {
 
-    Optional<VitalSignPersistenceEntity> findFirstByCareRecipientProfileIdAndVitalSignTypeIdAndEmittedAtIsNotNullOrderByMeasuredAtDesc(
-            CareRecipientProfileId careRecipientProfileId, UUID vitalSignTypeId);
+    Optional<VitalSignPersistenceEntity> findFirstByCareRecipientProfileIdAndVitalSignTypeAndEmittedAtIsNotNullOrderByMeasuredAtDesc(
+            CareRecipientProfileId careRecipientProfileId, VitalSignType vitalSignType);
 
-    List<VitalSignPersistenceEntity> findByCareRecipientProfileIdAndVitalSignTypeIdOrderByMeasuredAtDesc(
-            CareRecipientProfileId careRecipientProfileId, UUID vitalSignTypeId, Pageable pageable);
+    List<VitalSignPersistenceEntity> findByCareRecipientProfileIdAndVitalSignTypeOrderByMeasuredAtDesc(
+            CareRecipientProfileId careRecipientProfileId, VitalSignType vitalSignType, Pageable pageable);
 
     List<VitalSignPersistenceEntity> findByCareRecipientProfileIdAndMeasuredAtGreaterThanEqualAndMeasuredAtLessThanOrderByMeasuredAtAsc(
             CareRecipientProfileId careRecipientProfileId, Instant from, Instant to);
 
-    boolean existsByWearableDeviceIdAndVitalSignTypeIdAndMeasuredAt(UUID wearableDeviceId, UUID vitalSignTypeId, Instant measuredAt);
+    boolean existsByWearableDeviceIdAndVitalSignTypeAndMeasuredAt(UUID wearableDeviceId, VitalSignType vitalSignType, Instant measuredAt);
 }

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Implements the <b>Weekly Compilation Policy</b>: every Sunday it compiles the automatic weekly
- * summary of every care recipient that has an assigned wearable device (US24).
+ * summary of every care recipient that has a linked wearable device (US24).
  */
 @Slf4j
 @Component
@@ -29,7 +29,7 @@ public class WeeklyHealthSummaryScheduler {
     @Scheduled(cron = "${health-monitoring.weekly-summary.cron:0 0 0 * * SUN}",
             zone = "${health-monitoring.zone-id:America/Lima}")
     public void compileWeeklySummaries() {
-        wearableDeviceRepository.findAllAssigned().stream()
+        wearableDeviceRepository.findAll().stream()
                 .map(WearableDevice::getCareRecipientProfileId)
                 .distinct()
                 .forEach(careRecipientProfileId -> {

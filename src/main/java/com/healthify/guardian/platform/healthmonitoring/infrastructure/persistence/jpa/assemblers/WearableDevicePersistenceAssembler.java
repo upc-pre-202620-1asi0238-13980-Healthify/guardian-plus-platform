@@ -22,8 +22,7 @@ public final class WearableDevicePersistenceAssembler {
         device.setCareRecipientProfileId(entity.getCareRecipientProfileId());
         device.setSerialNumber(new SerialNumber(entity.getSerialNumber()));
         device.setDeviceType(entity.getDeviceType());
-        device.setStatus(entity.getStatus());
-        device.setAssignedAt(entity.getAssignedAt());
+        device.setLinkedAt(entity.getLinkedAt());
         device.setCreatedAt(toInstant(entity.getCreatedAt()));
         device.setUpdatedAt(toInstant(entity.getUpdatedAt()));
         return device;
@@ -36,8 +35,7 @@ public final class WearableDevicePersistenceAssembler {
         entity.setCareRecipientProfileId(device.getCareRecipientProfileId());
         entity.setSerialNumber(device.getSerialNumber().value());
         entity.setDeviceType(device.getDeviceType());
-        entity.setStatus(device.getStatus());
-        entity.setAssignedAt(device.getAssignedAt());
+        entity.setLinkedAt(device.getLinkedAt());
         return entity;
     }
 

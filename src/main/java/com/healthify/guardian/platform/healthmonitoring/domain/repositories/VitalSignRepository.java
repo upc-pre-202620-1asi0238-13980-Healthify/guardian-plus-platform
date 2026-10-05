@@ -4,7 +4,7 @@ import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.DateRange;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignId;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignTypeId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.WearableDeviceId;
 
 import java.time.Instant;
@@ -31,16 +31,16 @@ public interface VitalSignRepository {
     /**
      * Retrieves the most recent emitted reading of a type for a care recipient.
      */
-    Optional<VitalSign> findLatestByCareRecipientProfileIdAndVitalSignTypeId(
-            CareRecipientProfileId careRecipientProfileId, VitalSignTypeId vitalSignTypeId);
+    Optional<VitalSign> findLatestByCareRecipientProfileIdAndVitalSignType(
+            CareRecipientProfileId careRecipientProfileId, VitalSignType vitalSignType);
 
     /**
      * Retrieves the most recent readings of a type for a care recipient, newest first.
      *
      * @param count maximum number of readings to return
      */
-    List<VitalSign> findRecentByCareRecipientProfileIdAndVitalSignTypeId(
-            CareRecipientProfileId careRecipientProfileId, VitalSignTypeId vitalSignTypeId, int count);
+    List<VitalSign> findRecentByCareRecipientProfileIdAndVitalSignType(
+            CareRecipientProfileId careRecipientProfileId, VitalSignType vitalSignType, int count);
 
     /**
      * Retrieves the readings of a care recipient measured within a period (whole UTC days), oldest first.
@@ -51,6 +51,6 @@ public interface VitalSignRepository {
      * Whether a reading was already stored for the same device, type and measurement instant,
      * used to drop duplicates re-sent by the offline buffer of the wearable (US21).
      */
-    boolean existsByWearableDeviceIdAndVitalSignTypeIdAndMeasuredAt(
-            WearableDeviceId wearableDeviceId, VitalSignTypeId vitalSignTypeId, Instant measuredAt);
+    boolean existsByWearableDeviceIdAndVitalSignTypeAndMeasuredAt(
+            WearableDeviceId wearableDeviceId, VitalSignType vitalSignType, Instant measuredAt);
 }

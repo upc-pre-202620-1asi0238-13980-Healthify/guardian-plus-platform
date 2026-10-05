@@ -2,7 +2,6 @@ package com.healthify.guardian.platform.healthmonitoring.infrastructure.persiste
 
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSign;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignId;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignTypeId;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignValue;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.WearableDeviceId;
 import com.healthify.guardian.platform.healthmonitoring.infrastructure.persistence.jpa.entities.VitalSignPersistenceEntity;
@@ -21,7 +20,7 @@ public final class VitalSignPersistenceAssembler {
         vitalSign.setId(new VitalSignId(entity.getId()));
         vitalSign.setWearableDeviceId(new WearableDeviceId(entity.getWearableDeviceId()));
         vitalSign.setCareRecipientProfileId(entity.getCareRecipientProfileId());
-        vitalSign.setVitalSignTypeId(new VitalSignTypeId(entity.getVitalSignTypeId()));
+        vitalSign.setVitalSignType(entity.getVitalSignType());
         vitalSign.setValue(new VitalSignValue(entity.getValue()));
         vitalSign.setMeasuredAt(entity.getMeasuredAt());
         vitalSign.setReceivedAt(entity.getReceivedAt());
@@ -35,7 +34,7 @@ public final class VitalSignPersistenceAssembler {
         entity.setId(vitalSign.getId().value());
         entity.setWearableDeviceId(vitalSign.getWearableDeviceId().value());
         entity.setCareRecipientProfileId(vitalSign.getCareRecipientProfileId());
-        entity.setVitalSignTypeId(vitalSign.getVitalSignTypeId().value());
+        entity.setVitalSignType(vitalSign.getVitalSignType());
         entity.setValue(vitalSign.getValue().value());
         entity.setMeasuredAt(vitalSign.getMeasuredAt());
         entity.setReceivedAt(vitalSign.getReceivedAt());

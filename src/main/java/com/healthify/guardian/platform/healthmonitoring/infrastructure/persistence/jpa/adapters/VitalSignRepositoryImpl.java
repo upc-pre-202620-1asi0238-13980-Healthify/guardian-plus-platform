@@ -4,7 +4,7 @@ import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.DateRange;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignId;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignTypeId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.WearableDeviceId;
 import com.healthify.guardian.platform.healthmonitoring.domain.repositories.VitalSignRepository;
 import com.healthify.guardian.platform.healthmonitoring.infrastructure.persistence.jpa.assemblers.VitalSignPersistenceAssembler;
@@ -58,19 +58,19 @@ public class VitalSignRepositoryImpl implements VitalSignRepository {
     }
 
     @Override
-    public Optional<VitalSign> findLatestByCareRecipientProfileIdAndVitalSignTypeId(
-            CareRecipientProfileId careRecipientProfileId, VitalSignTypeId vitalSignTypeId) {
+    public Optional<VitalSign> findLatestByCareRecipientProfileIdAndVitalSignType(
+            CareRecipientProfileId careRecipientProfileId, VitalSignType vitalSignType) {
         return persistenceRepository
-                .findFirstByCareRecipientProfileIdAndVitalSignTypeIdAndEmittedAtIsNotNullOrderByMeasuredAtDesc(
-                        careRecipientProfileId, vitalSignTypeId.value())
+                .findFirstByCareRecipientProfileIdAndVitalSignTypeAndEmittedAtIsNotNullOrderByMeasuredAtDesc(
+                        careRecipientProfileId, vitalSignType)
                 .map(VitalSignPersistenceAssembler::toDomainFromPersistence);
     }
 
     @Override
-    public List<VitalSign> findRecentByCareRecipientProfileIdAndVitalSignTypeId(
-            CareRecipientProfileId careRecipientProfileId, VitalSignTypeId vitalSignTypeId, int count) {
-        return persistenceRepository.findByCareRecipientProfileIdAndVitalSignTypeIdOrderByMeasuredAtDesc(
-                        careRecipientProfileId, vitalSignTypeId.value(), PageRequest.of(0, count))
+    public List<VitalSign> findRecentByCareRecipientProfileIdAndVitalSignType(
+            CareRecipientProfileId careRecipientProfileId, VitalSignType vitalSignType, int count) {
+        return persistenceRepository.findByCareRecipientProfileIdAndVitalSignTypeOrderByMeasuredAtDesc(
+                        careRecipientProfileId, vitalSignType, PageRequest.of(0, count))
                 .stream().map(VitalSignPersistenceAssembler::toDomainFromPersistence).toList();
     }
 
@@ -85,9 +85,9 @@ public class VitalSignRepositoryImpl implements VitalSignRepository {
     }
 
     @Override
-    public boolean existsByWearableDeviceIdAndVitalSignTypeIdAndMeasuredAt(
-            WearableDeviceId wearableDeviceId, VitalSignTypeId vitalSignTypeId, Instant measuredAt) {
-        return persistenceRepository.existsByWearableDeviceIdAndVitalSignTypeIdAndMeasuredAt(
-                wearableDeviceId.value(), vitalSignTypeId.value(), measuredAt);
+    public boolean existsByWearableDeviceIdAndVitalSignTypeAndMeasuredAt(
+            WearableDeviceId wearableDeviceId, VitalSignType vitalSignType, Instant measuredAt) {
+        return persistenceRepository.existsByWearableDeviceIdAndVitalSignTypeAndMeasuredAt(
+                wearableDeviceId.value(), vitalSignType, measuredAt);
     }
 }

@@ -7,7 +7,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.DeviceStatus;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.DeviceType;
 
 import java.time.Instant;
@@ -33,10 +32,7 @@ public class WearableDevicePersistenceEntity extends AuditableAbstractPersistenc
     @Column(name = "device_type", nullable = false, length = 30)
     private DeviceType deviceType;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 30)
-    private DeviceStatus status;
 
-    @Column(name = "assigned_at", nullable = false)
-    private Instant assignedAt;
+    @Column(name = "linked_at", nullable = false)
+    private Instant linkedAt;
 }
