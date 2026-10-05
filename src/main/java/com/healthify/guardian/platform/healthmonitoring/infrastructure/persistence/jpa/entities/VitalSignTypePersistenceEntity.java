@@ -8,8 +8,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 /**
- * JPA persistence entity for the vital sign type catalog.
+ * JPA persistence entity for the vital sign type catalog. The reference range columns are nullable
+ * so that catalogs created before they existed can be migrated in place by the catalog initializer.
  */
 @Entity
 @Table(name = "vital_sign_types")
@@ -26,4 +29,16 @@ public class VitalSignTypePersistenceEntity extends AuditableAbstractPersistence
 
     @Column(name = "unit", nullable = false, length = 30)
     private String unit;
+
+    @Column(name = "normal_minimum", precision = 12, scale = 3)
+    private BigDecimal normalMinimum;
+
+    @Column(name = "normal_maximum", precision = 12, scale = 3)
+    private BigDecimal normalMaximum;
+
+    @Column(name = "physical_minimum", precision = 12, scale = 3)
+    private BigDecimal physicalMinimum;
+
+    @Column(name = "physical_maximum", precision = 12, scale = 3)
+    private BigDecimal physicalMaximum;
 }
