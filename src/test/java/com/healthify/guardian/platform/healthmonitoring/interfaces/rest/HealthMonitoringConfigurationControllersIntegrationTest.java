@@ -22,17 +22,38 @@ class HealthMonitoringConfigurationControllersIntegrationTest extends HealthMoni
     @Test
     void registersAndListsVitalSignTypes() throws Exception {
         mockMvc.perform(post("/api/v1/vital-sign-types").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"code\":\"glucose\",\"name\":\"Blood glucose\",\"unit\":\"mg/dL\"}"))
+                        .content(glucose("glucose", "Blood glucose", 70, 140)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.code").value("GLUCOSE"));
+                .andExpect(jsonPath("$.code").value("GLUCOSE"))
+                .andExpect(jsonPath("$.normalMinimum").value(70))
+                .andExpect(jsonPath("$.normalMaximum").value(140))
+                .andExpect(jsonPath("$.physicalMinimum").value(10))
+                .andExpect(jsonPath("$.physicalMaximum").value(600));
 
         mockMvc.perform(post("/api/v1/vital-sign-types").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"code\":\"GLUCOSE\",\"name\":\"Glucose\",\"unit\":\"mg/dL\"}"))
+                        .content(glucose("GLUCOSE", "Glucose", 70, 140)))
                 .andExpect(status().isConflict());
 
         mockMvc.perform(get("/api/v1/vital-sign-types"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void rejectsVitalSignTypeWithoutRangesOrWithNormalRangeBeyondPhysicalLimits() throws Exception {
+        mockMvc.perform(post("/api/v1/vital-sign-types").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"GLUCOSE\",\"name\":\"Blood glucose\",\"unit\":\"mg/dL\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/v1/vital-sign-types").contentType(MediaType.APPLICATION_JSON)
+                        .content(glucose("GLUCOSE", "Blood glucose", 5, 140)))
+                .andExpect(status().isBadRequest());
+    }
+
+    private static String glucose(String code, String name, int normalMinimum, int normalMaximum) {
+        return ("{\"code\":\"%s\",\"name\":\"%s\",\"unit\":\"mg/dL\",\"normalMinimum\":%d," +
+                "\"normalMaximum\":%d,\"physicalMinimum\":10,\"physicalMaximum\":600}")
+                .formatted(code, name, normalMinimum, normalMaximum);
     }
 
     @Test
