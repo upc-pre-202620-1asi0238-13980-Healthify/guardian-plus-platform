@@ -1,8 +1,7 @@
 package com.healthify.guardian.platform.healthmonitoring.application.commandservices;
 
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.WearableDevice;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.AssignWearableDeviceCommand;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.DeactivateWearableDeviceCommand;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.LinkWearableDeviceCommand;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.application.result.Result;
 
@@ -11,7 +10,8 @@ import com.healthify.guardian.platform.shared.application.result.Result;
  */
 public interface WearableDeviceCommandService {
 
-    Result<WearableDevice, ApplicationError> handle(AssignWearableDeviceCommand command);
-
-    Result<WearableDevice, ApplicationError> handle(DeactivateWearableDeviceCommand command);
+    /**
+     * Links a wearable device to a care recipient. A serial number can only be linked once.
+     */
+    Result<WearableDevice, ApplicationError> handle(LinkWearableDeviceCommand command);
 }

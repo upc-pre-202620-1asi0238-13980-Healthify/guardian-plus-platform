@@ -2,9 +2,7 @@ package com.healthify.guardian.platform.healthmonitoring.application.internal.co
 
 import com.healthify.guardian.platform.healthmonitoring.application.commandservices.WearableDeviceCommandService;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.WearableDevice;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.AssignWearableDeviceCommand;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.DeactivateWearableDeviceCommand;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.WearableDeviceId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.LinkWearableDeviceCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.repositories.WearableDeviceRepository;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.application.result.Result;
@@ -26,7 +24,7 @@ public class WearableDeviceCommandServiceImpl implements WearableDeviceCommandSe
     }
 
     @Override
-    public Result<WearableDevice, ApplicationError> handle(AssignWearableDeviceCommand command) {
+    public Result<WearableDevice, ApplicationError> handle(LinkWearableDeviceCommand command) {
         try {
             var device = new WearableDevice(command);
             if (wearableDeviceRepository.findBySerialNumber(device.getSerialNumber()).isPresent()) {
@@ -36,22 +34,7 @@ public class WearableDeviceCommandServiceImpl implements WearableDeviceCommandSe
             return Result.success(wearableDeviceRepository.save(device));
         } catch (IllegalArgumentException e) {
             return Result.failure(ApplicationError.validationError(
-                    "assign-wearable-device", MessageResolver.resolveOrDefault(e.getMessage(), e.getMessage())));
-        }
-    }
-
-    @Override
-    public Result<WearableDevice, ApplicationError> handle(DeactivateWearableDeviceCommand command) {
-        var device = wearableDeviceRepository.findById(new WearableDeviceId(command.wearableDeviceId()));
-        if (device.isEmpty()) {
-            return Result.failure(ApplicationError.notFound("WearableDevice", command.wearableDeviceId().toString()));
-        }
-        try {
-            device.get().deactivate();
-            return Result.success(wearableDeviceRepository.save(device.get()));
-        } catch (IllegalStateException e) {
-            return Result.failure(ApplicationError.businessRuleViolation(
-                    "deactivate-wearable-device", MessageResolver.resolveOrDefault(e.getMessage(), e.getMessage())));
+                    "link-wearable-device", MessageResolver.resolveOrDefault(e.getMessage(), e.getMessage())));
         }
     }
 }

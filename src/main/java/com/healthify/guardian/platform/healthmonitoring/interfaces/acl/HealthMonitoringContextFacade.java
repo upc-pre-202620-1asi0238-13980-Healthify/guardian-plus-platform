@@ -11,12 +11,12 @@ import java.util.UUID;
 public interface HealthMonitoringContextFacade {
 
     /**
-     * Whether the care recipient currently has an assigned wearable device.
+     * Whether the care recipient has a linked wearable device.
      */
-    boolean hasAssignedWearableDevice(UUID careRecipientProfileId);
+    boolean hasLinkedWearableDevice(UUID careRecipientProfileId);
 
     /**
-     * Latest emitted value of a vital sign type, identified by its catalog code (e.g. {@code HR}).
+     * Latest emitted value of a vital sign type, identified by its code (e.g. {@code HR}); empty for unknown codes.
      */
     Optional<BigDecimal> fetchLatestVitalSignValue(UUID careRecipientProfileId, String vitalSignTypeCode);
 }

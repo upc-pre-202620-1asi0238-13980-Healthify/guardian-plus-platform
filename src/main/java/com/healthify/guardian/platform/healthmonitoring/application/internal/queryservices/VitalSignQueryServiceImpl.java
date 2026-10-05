@@ -5,10 +5,11 @@ import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.
 import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetLiveVitalSignsByCareRecipientProfileIdQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetVitalSignsByCareRecipientProfileIdAndPeriodQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.domain.repositories.VitalSignRepository;
-import com.healthify.guardian.platform.healthmonitoring.domain.repositories.VitalSignTypeRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,19 +20,16 @@ import java.util.Optional;
 public class VitalSignQueryServiceImpl implements VitalSignQueryService {
 
     private final VitalSignRepository vitalSignRepository;
-    private final VitalSignTypeRepository vitalSignTypeRepository;
 
-    public VitalSignQueryServiceImpl(VitalSignRepository vitalSignRepository,
-                                     VitalSignTypeRepository vitalSignTypeRepository) {
+    public VitalSignQueryServiceImpl(VitalSignRepository vitalSignRepository) {
         this.vitalSignRepository = vitalSignRepository;
-        this.vitalSignTypeRepository = vitalSignTypeRepository;
     }
 
     @Override
     public List<VitalSign> handle(GetLiveVitalSignsByCareRecipientProfileIdQuery query) {
-        return vitalSignTypeRepository.findAll().stream()
-                .map(type -> vitalSignRepository.findLatestByCareRecipientProfileIdAndVitalSignTypeId(
-                        query.careRecipientProfileId(), type.getId()))
+        return Arrays.stream(VitalSignType.values())
+                .map(type -> vitalSignRepository.findLatestByCareRecipientProfileIdAndVitalSignType(
+                        query.careRecipientProfileId(), type))
                 .flatMap(Optional::stream)
                 .toList();
     }

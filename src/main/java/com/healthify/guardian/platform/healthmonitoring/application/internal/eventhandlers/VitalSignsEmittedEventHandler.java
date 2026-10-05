@@ -9,7 +9,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 /**
- * Reacts to {@link VitalSignsEmittedEvent} by evaluating the reading against its threshold (Emit -> Evaluate).
+ * Reacts to {@link VitalSignsEmittedEvent} by evaluating the reading against the normal range of its type (Emit -> Evaluate).
  *
  * <p>Never lets a failure propagate back to the publisher: it is logged and the reading stays stored.</p>
  */

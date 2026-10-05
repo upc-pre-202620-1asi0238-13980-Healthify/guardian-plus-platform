@@ -15,7 +15,7 @@ import java.util.List;
 public interface VitalSignCommandService {
 
     /**
-     * Detects a single reading sent by an assigned wearable device. The Detect, Emit and Evaluate
+     * Detects a single reading sent by a linked wearable device. The Detect, Emit and Evaluate
      * steps then follow through domain events.
      *
      * @param command the reading
@@ -38,8 +38,7 @@ public interface VitalSignCommandService {
     Result<VitalSign, ApplicationError> handle(EmitVitalSignsCommand command);
 
     /**
-     * Evaluates an emitted reading against the active threshold of its care recipient and type.
-     * When no active threshold exists the reading is left unevaluated.
+     * Evaluates an emitted reading against the normal range of its vital sign type.
      */
     Result<VitalSign, ApplicationError> handle(EvaluateVitalSignsThresholdsCommand command);
 }
