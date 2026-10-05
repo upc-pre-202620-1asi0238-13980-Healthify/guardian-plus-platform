@@ -1,8 +1,8 @@
 package com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates;
 
-import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.AssignWearableDeviceCommand;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.LinkWearableDeviceCommand;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.events.WearableDeviceLinkedEvent;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.DeviceStatus;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.DeviceType;
 import org.junit.jupiter.api.Test;
 
@@ -16,39 +16,30 @@ class WearableDeviceTest {
     private static final UUID RECIPIENT = UUID.randomUUID();
 
     @Test
-    void isAssignedOnCreation() {
-        var device = new WearableDevice(new AssignWearableDeviceCommand(RECIPIENT, " GP-0001 ", "wristband"));
+    void linkingRegistersTheWearableDeviceLinkedEvent() {
+        var device = new WearableDevice(new LinkWearableDeviceCommand(RECIPIENT, " GP-0001 ", "wristband"));
 
-        assertThat(device.getStatus()).isEqualTo(DeviceStatus.ASSIGNED);
         assertThat(device.getDeviceType()).isEqualTo(DeviceType.WRISTBAND);
         assertThat(device.getSerialNumber().value()).isEqualTo("GP-0001");
-        assertThat(device.getAssignedAt()).isNotNull();
+        assertThat(device.getLinkedAt()).isNotNull();
+        assertThat(device.domainEvents()).singleElement()
+                .isInstanceOfSatisfying(WearableDeviceLinkedEvent.class, event -> {
+                    assertThat(event.wearableDeviceId()).isEqualTo(device.getId());
+                    assertThat(event.careRecipientProfileId()).isEqualTo(new CareRecipientProfileId(RECIPIENT));
+                });
     }
 
     @Test
     void rejectsUnknownDeviceType() {
-        assertThatThrownBy(() -> new WearableDevice(new AssignWearableDeviceCommand(RECIPIENT, "GP-0001", "PHONE")))
+        assertThatThrownBy(() -> new WearableDevice(new LinkWearableDeviceCommand(RECIPIENT, "GP-0001", "PHONE")))
                 .hasMessage("wearable-device.device-type.invalid");
     }
 
     @Test
-    void onlyReportsForItsOwnCareRecipientWhileAssigned() {
-        var device = new WearableDevice(new AssignWearableDeviceCommand(RECIPIENT, "GP-0001", "SMARTWATCH"));
+    void onlyReportsForItsOwnCareRecipient() {
+        var device = new WearableDevice(new LinkWearableDeviceCommand(RECIPIENT, "GP-0001", "SMARTWATCH"));
 
         assertThat(device.canReportFor(new CareRecipientProfileId(RECIPIENT))).isTrue();
         assertThat(device.canReportFor(new CareRecipientProfileId(UUID.randomUUID()))).isFalse();
-
-        device.deactivate();
-
-        assertThat(device.getStatus()).isEqualTo(DeviceStatus.INACTIVE);
-        assertThat(device.canReportFor(new CareRecipientProfileId(RECIPIENT))).isFalse();
-    }
-
-    @Test
-    void cannotBeDeactivatedTwice() {
-        var device = new WearableDevice(new AssignWearableDeviceCommand(RECIPIENT, "GP-0001", "PATCH"));
-        device.deactivate();
-
-        assertThatThrownBy(device::deactivate).hasMessage("wearable-device.cannot.deactivate");
     }
 }

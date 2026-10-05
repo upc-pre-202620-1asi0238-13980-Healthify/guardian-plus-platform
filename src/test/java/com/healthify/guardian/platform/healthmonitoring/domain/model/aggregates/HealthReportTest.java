@@ -1,13 +1,12 @@
 package com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates;
 
-import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.DefineVitalSignThresholdCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.DetectVitalSignsCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.GenerateHealthReportCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.entities.VitalSignSummary;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.events.HealthReportGeneratedEvent;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.events.WeeklySummaryCompiledEvent;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.HealthReportType;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignTypeId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -23,34 +22,25 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class HealthReportTest {
 
     private static final UUID RECIPIENT = UUID.randomUUID();
-    private static final UUID HEART_RATE = UUID.randomUUID();
-    private static final UUID SPO2 = UUID.randomUUID();
     private static final LocalDate START = LocalDate.of(2026, 9, 28);
     private static final LocalDate END = LocalDate.of(2026, 10, 4);
 
-    private static VitalSign reading(UUID recipient, UUID type, String value) {
+    private static VitalSign reading(UUID recipient, VitalSignType type, String value) {
         var at = Instant.parse("2026-10-01T10:00:00Z");
-        return new VitalSign(new DetectVitalSignsCommand(UUID.randomUUID(), recipient, type, new BigDecimal(value), at, at));
+        return new VitalSign(new DetectVitalSignsCommand(UUID.randomUUID(), recipient, type.code(), new BigDecimal(value), at, at));
     }
 
     private static GenerateHealthReportCommand command(String type) {
         return new GenerateHealthReportCommand(RECIPIENT, UUID.randomUUID(), type, START, END);
     }
 
-    private static String label(VitalSignTypeId typeId) {
-        return typeId.value().equals(HEART_RATE) ? "HR" : "SPO2";
-    }
-
-    private static VitalSignThreshold threshold(UUID type, String min, String max) {
-        return new VitalSignThreshold(new DefineVitalSignThresholdCommand(RECIPIENT, type, new BigDecimal(min), new BigDecimal(max), 3));
-    }
 
     @Test
     void summarizesEachVitalSignType() {
-        var readings = List.of(reading(RECIPIENT, HEART_RATE, "60"), reading(RECIPIENT, HEART_RATE, "80"),
-                reading(RECIPIENT, SPO2, "97"));
+        var readings = List.of(reading(RECIPIENT, VitalSignType.HR, "60"), reading(RECIPIENT, VitalSignType.HR, "80"),
+                reading(RECIPIENT, VitalSignType.SPO2, "97"));
 
-        var report = new HealthReport(command("ON_DEMAND"), readings, List.of(), HealthReportTest::label);
+        var report = new HealthReport(command("ON_DEMAND"), readings);
 
         assertThat(report.getReportType()).isEqualTo(HealthReportType.ON_DEMAND);
         assertThat(report.getSummaries()).hasSize(2);
@@ -65,13 +55,12 @@ class HealthReportTest {
     }
 
     @Test
-    void flagsTypesWithMoreThanThreeAnomaliesAsRecurrent() {
-        var heartRateReadings = Stream.of("120", "125", "130", "118", "70").map(v -> reading(RECIPIENT, HEART_RATE, v));
-        var spo2Readings = Stream.of("89", "97").map(v -> reading(RECIPIENT, SPO2, v));
+    void flagsTypesWithMoreThanThreeReadingsOutsideTheirNormalRangeAsRecurrent() {
+        var heartRateReadings = Stream.of("120", "125", "130", "118", "70").map(v -> reading(RECIPIENT, VitalSignType.HR, v));
+        var spo2Readings = Stream.of("89", "97").map(v -> reading(RECIPIENT, VitalSignType.SPO2, v));
         var readings = Stream.concat(heartRateReadings, spo2Readings).toList();
-        var thresholds = List.of(threshold(HEART_RATE, "60", "100"), threshold(SPO2, "95", "100"));
 
-        var report = new HealthReport(command("ON_DEMAND"), readings, thresholds, HealthReportTest::label);
+        var report = new HealthReport(command("ON_DEMAND"), readings);
 
         assertThat(report.getSummaries()).extracting(VitalSignSummary::getStabilityIndex)
                 .containsExactly(VitalSignSummary.RECURRENT, VitalSignSummary.UNSTABLE);
@@ -83,7 +72,7 @@ class HealthReportTest {
     @Test
     void weeklyReportAlsoAnnouncesTheWeeklySummary() {
         var report = new HealthReport(new GenerateHealthReportCommand(RECIPIENT, null, "WEEKLY_AUTOMATIC", START, END),
-                List.of(reading(RECIPIENT, HEART_RATE, "70")), List.of(), HealthReportTest::label);
+                List.of(reading(RECIPIENT, VitalSignType.HR, "70")));
 
         assertThat(report.getGeneratedByUserId()).isNull();
         assertThat(report.domainEvents()).hasSize(2)
@@ -92,23 +81,23 @@ class HealthReportTest {
 
     @Test
     void rejectsEmptyPeriod() {
-        assertThatThrownBy(() -> new HealthReport(command("ON_DEMAND"), List.of(), List.of(), HealthReportTest::label))
+        assertThatThrownBy(() -> new HealthReport(command("ON_DEMAND"), List.of()))
                 .hasMessage("health-report.vital-signs.empty");
     }
 
     @Test
     void rejectsReadingsOfAnotherCareRecipient() {
-        var readings = List.of(reading(UUID.randomUUID(), HEART_RATE, "70"));
+        var readings = List.of(reading(UUID.randomUUID(), VitalSignType.HR, "70"));
 
-        assertThatThrownBy(() -> new HealthReport(command("ON_DEMAND"), readings, List.of(), HealthReportTest::label))
+        assertThatThrownBy(() -> new HealthReport(command("ON_DEMAND"), readings))
                 .hasMessage("health-report.vital-sign.out-of-scope");
     }
 
     @Test
     void rejectsUnknownReportType() {
-        var readings = List.of(reading(RECIPIENT, HEART_RATE, "70"));
+        var readings = List.of(reading(RECIPIENT, VitalSignType.HR, "70"));
 
-        assertThatThrownBy(() -> new HealthReport(command("MONTHLY"), readings, List.of(), HealthReportTest::label))
+        assertThatThrownBy(() -> new HealthReport(command("MONTHLY"), readings))
                 .hasMessage("health-report.report-type.invalid");
     }
 }
