@@ -53,7 +53,8 @@ class VitalSignCommandServiceImplTest {
         service = new VitalSignCommandServiceImpl(vitalSignRepository, vitalSignThresholdRepository,
                 wearableDeviceRepository, vitalSignTypeRepository, Clock.fixed(NOW, ZoneOffset.UTC));
         device = new WearableDevice(new AssignWearableDeviceCommand(RECIPIENT, "GP-0001", "WRISTBAND"));
-        heartRate = new VitalSignType(new RegisterVitalSignTypeCommand("HR", "Heart rate", "bpm"));
+        heartRate = new VitalSignType(new RegisterVitalSignTypeCommand("HR", "Heart rate", "bpm",
+                new BigDecimal("60"), new BigDecimal("100"), new BigDecimal("20"), new BigDecimal("250")));
     }
 
     private DetectVitalSignsCommand command(UUID recipient) {
@@ -111,5 +112,18 @@ class VitalSignCommandServiceImplTest {
         var result = service.handle(command(RECIPIENT));
 
         assertThat(((Result.Failure<?, ?>) result).error()).hasFieldOrPropertyWithValue("code", "VITALSIGN_CONFLICT");
+    }
+
+    @Test
+    void rejectsReadingOutsideThePhysicalLimitsOfItsType() {
+        when(wearableDeviceRepository.findById(device.getId())).thenReturn(Optional.of(device));
+        when(vitalSignTypeRepository.findById(heartRate.getId())).thenReturn(Optional.of(heartRate));
+        var impossible = new DetectVitalSignsCommand(device.getId().value(), RECIPIENT, heartRate.getId().value(),
+                new BigDecimal("400"), NOW.minusSeconds(2), NOW);
+
+        var result = service.handle(impossible);
+
+        assertThat(((Result.Failure<?, ?>) result).error()).hasFieldOrPropertyWithValue("code", "VALIDATION_ERROR");
+        verify(vitalSignRepository, never()).save(any(VitalSign.class));
     }
 }

@@ -49,6 +49,16 @@ class VitalSignThresholdCommandServiceImplTest {
     }
 
     @Test
+    void rejectsRangeBeyondThePhysicalLimitsOfTheType() {
+        var spo2 = context.registerType("SPO2", "Oxygen saturation", "%");
+
+        var result = context.thresholdCommandService.handle(new DefineVitalSignThresholdCommand(
+                recipient, spo2.getId().value(), new BigDecimal("90"), new BigDecimal("110"), 3));
+
+        assertThat(((Result.Failure<?, ?>) result).error()).hasFieldOrPropertyWithValue("code", "VALIDATION_ERROR");
+    }
+
+    @Test
     void deactivatingTwiceViolatesABusinessRule() {
         var heartRate = context.registerType("HR", "Heart rate", "bpm");
         var threshold = context.defineThreshold(recipient, heartRate, "60", "100", 3);

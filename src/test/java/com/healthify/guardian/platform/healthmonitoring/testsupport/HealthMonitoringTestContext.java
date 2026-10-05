@@ -22,6 +22,7 @@ import com.healthify.guardian.platform.healthmonitoring.domain.model.events.Vita
 import com.healthify.guardian.platform.healthmonitoring.domain.model.events.VitalSignsEmittedEvent;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.events.VitalSignsThresholdsEvaluatedEvent;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.events.WeeklySummaryCompiledEvent;
+import com.healthify.guardian.platform.healthmonitoring.infrastructure.configuration.VitalSignTypeCatalogInitializer;
 import com.healthify.guardian.platform.shared.application.result.Result;
 import org.springframework.context.ApplicationEventPublisher;
 
@@ -88,8 +89,23 @@ public class HealthMonitoringTestContext {
         return publishedEvents.stream().filter(type::isInstance).map(type::cast).toList();
     }
 
+    /**
+     * Registers a type with the reference ranges of the seeded catalog entry of the same code, or with
+     * wide ranges for any other code.
+     */
     public VitalSignType registerType(String code, String name, String unit) {
-        return value(vitalSignTypeCommandService.handle(new RegisterVitalSignTypeCommand(code, name, unit)));
+        var defaults = VitalSignTypeCatalogInitializer.DEFAULT_TYPES.stream()
+                .filter(type -> type.code().equals(code))
+                .findFirst();
+        return registerType(new RegisterVitalSignTypeCommand(code, name, unit,
+                defaults.map(RegisterVitalSignTypeCommand::normalMinimum).orElse(BigDecimal.ZERO),
+                defaults.map(RegisterVitalSignTypeCommand::normalMaximum).orElse(new BigDecimal("1000")),
+                defaults.map(RegisterVitalSignTypeCommand::physicalMinimum).orElse(BigDecimal.ZERO),
+                defaults.map(RegisterVitalSignTypeCommand::physicalMaximum).orElse(new BigDecimal("1000"))));
+    }
+
+    public VitalSignType registerType(RegisterVitalSignTypeCommand command) {
+        return value(vitalSignTypeCommandService.handle(command));
     }
 
     public WearableDevice assignDevice(UUID careRecipientProfileId, String serialNumber) {

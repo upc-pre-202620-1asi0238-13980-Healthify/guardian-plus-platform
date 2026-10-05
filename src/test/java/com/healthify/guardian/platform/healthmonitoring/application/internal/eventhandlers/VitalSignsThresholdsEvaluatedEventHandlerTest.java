@@ -2,6 +2,7 @@ package com.healthify.guardian.platform.healthmonitoring.application.internal.ev
 
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.WearableDevice;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.events.VitalSignAnomalyDetectedIntegrationEvent;
 import com.healthify.guardian.platform.healthmonitoring.testsupport.HealthMonitoringTestContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -85,11 +86,26 @@ class VitalSignsThresholdsEvaluatedEventHandlerTest {
     }
 
     @Test
-    void readingsWithoutThresholdAreNeverAnomalous() {
+    void readingsWithoutPersonalizedThresholdAreEvaluatedAgainstTheNormalRangeOfTheirType() {
         var spo2 = context.registerType("SPO2", "Oxygen saturation", "%");
-        for (int i = 0; i < 4; i++) {
-            context.detect(device, spo2, "70", NOW.minusSeconds(100 - i));
+        for (int i = 0; i < 3; i++) {
+            context.detect(device, spo2, "85", NOW.minusSeconds(100 - i));
         }
+
+        assertThat(anomalies()).isEqualTo(1);
+        var anomaly = context.eventsOfType(VitalSignAnomalyDetectedIntegrationEvent.class).getLast();
+        assertThat(anomaly.classification()).isEqualTo("BELOW_RANGE");
+        assertThat(anomaly.minimumValue()).isEqualByComparingTo("92");
+    }
+
+    @Test
+    void deactivatedThresholdIsNotReplacedByTheNormalRange() {
+        var threshold = context.thresholdRepository.findByCareRecipientProfileIdAndVitalSignTypeId(
+                new CareRecipientProfileId(recipient), heartRate.getId()).orElseThrow();
+        threshold.deactivate();
+        context.thresholdRepository.save(threshold);
+
+        read("120", "125", "130");
 
         assertThat(anomalies()).isZero();
     }
