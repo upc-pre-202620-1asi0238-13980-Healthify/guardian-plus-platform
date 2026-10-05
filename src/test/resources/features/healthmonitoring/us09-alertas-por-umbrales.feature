@@ -7,7 +7,7 @@ Característica: Generación de alertas por transgresión de umbrales biomédico
 
   Antecedentes:
     Dado una persona bajo cuidado con una pulsera asignada
-    Y un umbral de HR entre 60 y 100 con 3 lecturas consecutivas
+    Y el rango normal de HR es de 60 a 100
 
   Escenario: Superación persistente de umbrales clínicos
     Cuando la pulsera transmite las lecturas de HR: "120, 125, 130"

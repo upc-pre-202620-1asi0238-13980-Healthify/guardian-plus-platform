@@ -2,7 +2,6 @@ package com.healthify.guardian.platform.healthmonitoring.acceptance.steps;
 
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.HealthReport;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSign;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.WearableDevice;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.CompileWeeklySummaryCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.DetectVitalSignsCommand;
@@ -10,8 +9,7 @@ import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.Ge
 import com.healthify.guardian.platform.healthmonitoring.domain.model.entities.VitalSignSummary;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetLiveVitalSignsByCareRecipientProfileIdQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignTypeCode;
-import com.healthify.guardian.platform.healthmonitoring.infrastructure.configuration.VitalSignTypeCatalogInitializer;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.events.VitalSignAnomalyDetectedIntegrationEvent;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources.LiveVitalSignResource;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources.LiveVitalSignsResource;
@@ -55,7 +53,7 @@ public class HealthMonitoringStepDefinitions {
     private Result<HealthReport, ApplicationError> reportResult;
 
     /**
-     * Locale-independent decimal: the built-in {@code {decimal}} follows the Spanish locale of the
+     * Locale-independent decimal: the built-in {@code {bigdecimal}} follows the Spanish locale of the
      * features and would read {@code 37.8} as {@code 378}.
      */
     @ParameterType("-?\\d+(?:\\.\\d+)?")
@@ -63,12 +61,8 @@ public class HealthMonitoringStepDefinitions {
         return new BigDecimal(value);
     }
 
-    private VitalSignType type(String code) {
-        return context.vitalSignTypeRepository.findByCode(new VitalSignTypeCode(code)).orElseThrow();
-    }
-
     private DetectVitalSignsCommand reading(String code, BigDecimal value, long secondsBeforeNow) {
-        return new DetectVitalSignsCommand(device.getId().value(), recipient, type(code).getId().value(),
+        return new DetectVitalSignsCommand(device.getId().value(), recipient, code,
                 value, NOW.minusSeconds(secondsBeforeNow), NOW);
     }
 
@@ -79,14 +73,15 @@ public class HealthMonitoringStepDefinitions {
 
     @Dado("una persona bajo cuidado con una pulsera asignada")
     public void unaPersonaBajoCuidadoConUnaPulseraAsignada() {
-        VitalSignTypeCatalogInitializer.DEFAULT_TYPES.forEach(context::registerType);
         recipient = UUID.randomUUID();
-        device = context.assignDevice(recipient, "GP-ESP32-S3-0001");
+        device = context.linkDevice(recipient, "GP-ESP32-S3-0001");
     }
 
-    @Dado("un umbral de {word} entre {decimal} y {decimal} con {int} lecturas consecutivas")
-    public void unUmbral(String code, BigDecimal minimum, BigDecimal maximum, int hits) {
-        context.defineThreshold(recipient, type(code), minimum.toPlainString(), maximum.toPlainString(), hits);
+    @Dado("el rango normal de {word} es de {decimal} a {decimal}")
+    public void elRangoNormalEs(String code, BigDecimal minimum, BigDecimal maximum) {
+        var normalRange = VitalSignType.fromCode(code).normalRange();
+        assertThat(normalRange.minimum()).isEqualByComparingTo(minimum);
+        assertThat(normalRange.maximum()).isEqualByComparingTo(maximum);
     }
 
     @Cuando("la pulsera transmite una lectura de {word} de {decimal}")
@@ -110,14 +105,12 @@ public class HealthMonitoringStepDefinitions {
         var careRecipientProfileId = new CareRecipientProfileId(recipient);
         var latest = context.vitalSignQueryService.handle(new GetLiveVitalSignsByCareRecipientProfileIdQuery(careRecipientProfileId));
         liveView = LiveVitalSignsResourceFromEntityAssembler.toResourceFromEntities(
-                recipient, latest, context.vitalSignTypeRepository.findAll(),
-                context.thresholdRepository.findAllActiveByCareRecipientProfileId(careRecipientProfileId),
-                LIVE_SIGNAL_WINDOW, NOW);
+                recipient, latest, LIVE_SIGNAL_WINDOW, NOW);
     }
 
     private LiveVitalSignResource liveReading(String code) {
         return liveView.vitalSigns().stream()
-                .filter(vitalSign -> code.equals(vitalSign.vitalSignTypeCode()))
+                .filter(vitalSign -> code.equals(vitalSign.vitalSignType()))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("No live reading of " + code));
     }
@@ -169,7 +162,7 @@ public class HealthMonitoringStepDefinitions {
 
     @Cuando("la pulsera sincroniza un lote con una lectura de otra persona bajo cuidado")
     public void laPulseraSincronizaUnLoteConUnaLecturaAjena() {
-        var foreign = new DetectVitalSignsCommand(device.getId().value(), UUID.randomUUID(), type("HR").getId().value(),
+        var foreign = new DetectVitalSignsCommand(device.getId().value(), UUID.randomUUID(), "HR",
                 new BigDecimal("70"), NOW.minusSeconds(10), NOW);
         batchResult = context.vitalSignCommandService.handleBatch(List.of(reading("HR", new BigDecimal("70"), 20), foreign));
     }

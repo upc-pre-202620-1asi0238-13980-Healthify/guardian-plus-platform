@@ -7,8 +7,8 @@ Característica: Reportes de salud
 
   Antecedentes:
     Dado una persona bajo cuidado con una pulsera asignada
-    Y un umbral de HR entre 60 y 100 con 3 lecturas consecutivas
-    Y un umbral de SPO2 entre 95 y 100 con 3 lecturas consecutivas
+    Y el rango normal de HR es de 60 a 100
+    Y el rango normal de SPO2 es de 92 a 100
 
   Escenario: Solicitud de reporte en un rango vacío
     Cuando el cuidador solicita el reporte del "2026-09-01" al "2026-09-30"
