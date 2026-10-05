@@ -1,7 +1,7 @@
 package com.healthify.guardian.platform.healthmonitoring.domain.model.entities;
 
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSign;
-import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSignThreshold;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignType;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -13,7 +13,7 @@ import java.util.List;
  * Internal entity of {@code HealthReport} summarizing the readings of one vital sign type within
  * the report period: average, minimum, maximum and how stable the readings were.
  *
- * <p>{@code stabilityIndex} is {@value #STABLE} when no reading left the clinical range,
+ * <p>{@code stabilityIndex} is {@value #STABLE} when no reading left the normal range of its type,
  * {@value #UNSTABLE} when some did, and {@value #RECURRENT} when more than
  * {@value #RECURRENT_ANOMALIES_LIMIT} did (US24, "more than 3 anomalies of the same type").</p>
  */
@@ -56,12 +56,11 @@ public class VitalSignSummary {
      * Summarizes the readings of a single vital sign type.
      *
      * @param id         position of the summary inside its report
-     * @param metricType label of the vital sign type (its catalog code)
-     * @param readings   readings of that type, never empty
-     * @param threshold  the threshold in force for that type, or {@code null} when none is defined
+     * @param type     the vital sign type, whose code labels the summary
+     * @param readings readings of that type, never empty
      * @return the summary
      */
-    public static VitalSignSummary of(Long id, String metricType, List<VitalSign> readings, VitalSignThreshold threshold) {
+    public static VitalSignSummary of(Long id, VitalSignType type, List<VitalSign> readings) {
         if (readings == null || readings.isEmpty()) {
             throw new IllegalArgumentException(VALUES_EMPTY_KEY);
         }
@@ -70,9 +69,10 @@ public class VitalSignSummary {
         var average = sum.divide(BigDecimal.valueOf(values.size()), 2, RoundingMode.HALF_UP);
         var min = values.stream().min(Comparator.naturalOrder()).orElseThrow();
         var max = values.stream().max(Comparator.naturalOrder()).orElseThrow();
-        var outOfRange = threshold == null ? 0
-                : (int) readings.stream().filter(reading -> threshold.isExceededBy(reading.getValue())).count();
-        return new VitalSignSummary(id, metricType, average.doubleValue(), min.doubleValue(), max.doubleValue(),
+        var outOfRange = (int) readings.stream()
+                .filter(reading -> type.classify(reading.getValue()).isOutOfRange())
+                .count();
+        return new VitalSignSummary(id, type.code(), average.doubleValue(), min.doubleValue(), max.doubleValue(),
                 values.size(), outOfRange, toStabilityIndex(outOfRange));
     }
 
