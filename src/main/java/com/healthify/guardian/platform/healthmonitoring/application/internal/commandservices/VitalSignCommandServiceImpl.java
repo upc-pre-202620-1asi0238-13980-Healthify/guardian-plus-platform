@@ -2,12 +2,16 @@ package com.healthify.guardian.platform.healthmonitoring.application.internal.co
 
 import com.healthify.guardian.platform.healthmonitoring.application.commandservices.VitalSignCommandService;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSign;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSignThreshold;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.VitalSignType;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.DefineVitalSignThresholdCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.DetectVitalSignsCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.EmitVitalSignsCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.EvaluateVitalSignsThresholdsCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignId;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignTypeId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.VitalSignValue;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.WearableDeviceId;
 import com.healthify.guardian.platform.healthmonitoring.domain.repositories.VitalSignRepository;
 import com.healthify.guardian.platform.healthmonitoring.domain.repositories.VitalSignThresholdRepository;
@@ -25,6 +29,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Application service that executes vital sign commands.
@@ -36,6 +41,9 @@ public class VitalSignCommandServiceImpl implements VitalSignCommandService {
     private static final String DUPLICATE_KEY = "vital-sign.duplicate";
     private static final String BATCH_EMPTY_KEY = "vital-sign.batch.empty";
     private static final String BATCH_ITEM_INVALID_KEY = "vital-sign.batch.item.invalid";
+    private static final String OUTSIDE_PHYSICAL_LIMITS_KEY = "vital-sign.value.outside-physical-limits";
+    /** Tolerance applied to the default threshold derived from the catalog normal range. */
+    static final int DEFAULT_REQUIRED_CONSECUTIVE_HITS = 3;
 
     private final VitalSignRepository vitalSignRepository;
     private final VitalSignThresholdRepository vitalSignThresholdRepository;
@@ -135,6 +143,9 @@ public class VitalSignCommandServiceImpl implements VitalSignCommandService {
         }
         var threshold = vitalSignThresholdRepository.findByCareRecipientProfileIdAndVitalSignTypeId(
                 vitalSign.get().getCareRecipientProfileId(), vitalSign.get().getVitalSignTypeId());
+        if (threshold.isEmpty()) {
+            threshold = defineDefaultThreshold(vitalSign.get());
+        }
         if (threshold.isEmpty() || !threshold.get().isActive()) {
             return Result.success(vitalSign.get());
         }
@@ -162,10 +173,30 @@ public class VitalSignCommandServiceImpl implements VitalSignCommandService {
         if (!device.get().canReportFor(new CareRecipientProfileId(command.careRecipientProfileId()))) {
             return ApplicationError.businessRuleViolation("detect-vital-signs", resolve(DEVICE_NOT_ASSIGNED_KEY));
         }
-        if (vitalSignTypeRepository.findById(new VitalSignTypeId(command.vitalSignTypeId())).isEmpty()) {
+        var type = vitalSignTypeRepository.findById(new VitalSignTypeId(command.vitalSignTypeId()));
+        if (type.isEmpty()) {
             return ApplicationError.notFound("VitalSignType", command.vitalSignTypeId().toString());
         }
+        if (command.value() != null && !type.get().isPhysicallyPossible(new VitalSignValue(command.value()))) {
+            return ApplicationError.validationError("detect-vital-signs", resolve(OUTSIDE_PHYSICAL_LIMITS_KEY));
+        }
         return null;
+    }
+
+    /**
+     * A care recipient without a personalized threshold is evaluated against the normal range of the
+     * vital sign type, materialized as their threshold so the tolerance rule, the live view and the
+     * health reports all work from the first reading. A deactivated threshold is never replaced.
+     */
+    private Optional<VitalSignThreshold> defineDefaultThreshold(VitalSign vitalSign) {
+        return vitalSignTypeRepository.findById(vitalSign.getVitalSignTypeId())
+                .filter(VitalSignType::hasReferenceRanges)
+                .map(type -> vitalSignThresholdRepository.save(new VitalSignThreshold(new DefineVitalSignThresholdCommand(
+                        vitalSign.getCareRecipientProfileId().value(),
+                        type.getId().value(),
+                        type.getNormalRange().minimum(),
+                        type.getNormalRange().maximum(),
+                        DEFAULT_REQUIRED_CONSECUTIVE_HITS))));
     }
 
     private boolean isDuplicate(DetectVitalSignsCommand command) {
