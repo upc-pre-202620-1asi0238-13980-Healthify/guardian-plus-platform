@@ -29,7 +29,6 @@
     <properties>
         <java.version>26</java.version>
         <cucumber.version>8.0.4</cucumber.version>
-        <lombok.version>1.18.48</lombok.version>
     </properties>
     <dependencies>
         <dependency>
