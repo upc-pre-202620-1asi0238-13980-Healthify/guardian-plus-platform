@@ -99,7 +99,7 @@ docker compose -f docker-compose.dev.yml --profile full up -d --build
 
 The simulator loads the wearable devices once at startup, so it waits until the backend is up. Stop everything with `docker compose -f docker-compose.dev.yml --profile full down`.
 
-To reach the local backend from the mobile app, point it to `http://127.0.0.1:8080/api/v1/` and forward the port with `adb reverse tcp:8080 tcp:8080` (again after every emulator restart).
+To reach the local backend from the mobile app on the emulator, point it to `http://10.0.2.2:8080/api/v1/` (the emulator's alias for the host machine; debug builds hold the local network permission Android 17 requires). On a physical phone over USB, use `http://127.0.0.1:8080/api/v1/` plus `adb reverse tcp:8080 tcp:8080`.
 
 ### Useful database commands
 
