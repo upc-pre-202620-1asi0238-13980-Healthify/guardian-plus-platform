@@ -2,6 +2,7 @@ package com.healthify.guardian.platform.healthmonitoring.application.internal.qu
 
 import com.healthify.guardian.platform.healthmonitoring.application.queryservices.WearableDeviceQueryService;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.WearableDevice;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetAllWearableDevicesQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetWearableDevicesByCareRecipientProfileIdQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.repositories.WearableDeviceRepository;
 import org.springframework.stereotype.Service;
@@ -23,5 +24,10 @@ public class WearableDeviceQueryServiceImpl implements WearableDeviceQueryServic
     @Override
     public List<WearableDevice> handle(GetWearableDevicesByCareRecipientProfileIdQuery query) {
         return wearableDeviceRepository.findByCareRecipientProfileId(query.careRecipientProfileId());
+    }
+
+    @Override
+    public List<WearableDevice> handle(GetAllWearableDevicesQuery query) {
+        return wearableDeviceRepository.findAll();
     }
 }

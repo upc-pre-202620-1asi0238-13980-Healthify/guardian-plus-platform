@@ -2,6 +2,7 @@ package com.healthify.guardian.platform.healthmonitoring.interfaces.rest;
 
 import com.healthify.guardian.platform.healthmonitoring.application.commandservices.WearableDeviceCommandService;
 import com.healthify.guardian.platform.healthmonitoring.application.queryservices.WearableDeviceQueryService;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetAllWearableDevicesQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetWearableDevicesByCareRecipientProfileIdQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources.LinkWearableDeviceResource;
@@ -63,6 +64,19 @@ public class WearableDevicesController {
                 LinkWearableDeviceCommandFromResourceAssembler.toCommandFromResource(resource));
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result, WearableDeviceResourceFromEntityAssembler::toResourceFromEntity, HttpStatus.CREATED);
+    }
+
+    @GetMapping
+    @Operation(summary = "List all wearable devices",
+            description = "Lists every linked device. The IoT simulator loads the devices it emulates from here.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Devices retrieved",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = WearableDeviceResource.class))))
+    })
+    public ResponseEntity<List<WearableDeviceResource>> getAllWearableDevices() {
+        return ResponseEntity.ok(wearableDeviceQueryService.handle(new GetAllWearableDevicesQuery()).stream()
+                .map(WearableDeviceResourceFromEntityAssembler::toResourceFromEntity)
+                .toList());
     }
 
     @GetMapping("/care-recipient/{careRecipientProfileId}")

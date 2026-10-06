@@ -36,6 +36,20 @@ class WearableDevicesAndVitalSignTypesControllersIntegrationTest extends HealthM
     }
 
     @Test
+    void listsEveryLinkedWearableDevice() throws Exception {
+        mockMvc.perform(post("/api/v1/wearable-devices").contentType(MediaType.APPLICATION_JSON)
+                .content(device(recipient, "GP-0001", "WRISTBAND")));
+        mockMvc.perform(post("/api/v1/wearable-devices").contentType(MediaType.APPLICATION_JSON)
+                .content(device(UUID.randomUUID(), "GP-0002", "SMARTWATCH")));
+
+        mockMvc.perform(get("/api/v1/wearable-devices"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").exists())
+                .andExpect(jsonPath("$[0].careRecipientProfileId").exists());
+    }
+
+    @Test
     void aSerialNumberCanOnlyBeLinkedOnce() throws Exception {
         mockMvc.perform(post("/api/v1/wearable-devices").contentType(MediaType.APPLICATION_JSON)
                 .content(device(recipient, "GP-0001", "WRISTBAND")));
