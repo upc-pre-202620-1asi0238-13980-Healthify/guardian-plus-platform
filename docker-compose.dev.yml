@@ -10,6 +10,11 @@ services:
       - "5432:5432"
     volumes:
       - guardian-plus-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   pgadmin:
     image: dpage/pgadmin4
@@ -30,6 +35,49 @@ services:
       - "9001:9001"
     volumes:
       - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  # Backend and IoT simulator only start with `--profile full`; without it, run the backend from the IDE
+  backend:
+    profiles: [full]
+    build: .
+    container_name: guardian-plus-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DATABASE_URL: postgres
+      HEALTH_MONITORING_MQTT_BROKER_URL: ws://mosquitto:9001
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    # The JRE image has no curl: the port only opens once the application has started
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  simulator:
+    profiles: [full]
+    # Sibling checkout of guardian-plus-iot-simulator; override SIMULATOR_DIR if yours lives elsewhere
+    build: ${SIMULATOR_DIR:-../../guardian-plus-iot-simulator}
+    container_name: guardian-plus-simulator
+    environment:
+      MQTT_HOST: mosquitto
+      BACKEND_DEVICES_URL: http://backend:8080/api/v1/wearable-devices
+      EMIT_INTERVAL_SECONDS: 10
+    ports:
+      # 5000 is taken by the AirPlay Receiver on macOS
+      - "5055:5000"
+    # It loads the devices only once at startup, so it waits for the backend
+    depends_on:
+      backend:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
 
 volumes:
   guardian-plus-data:
