@@ -42,7 +42,7 @@ Cross-cutting concerns (result wrappers, i18n, persistence naming strategy, API 
 
 ### 1. Start the database
 
-The `docker-compose.dev.yml` file starts a **PostgreSQL 17** instance and **pgAdmin 4** for local development:
+The `docker-compose.dev.yml` file starts a **PostgreSQL 17** instance, **pgAdmin 4** and a **Mosquitto** MQTT broker for local development:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d
@@ -58,6 +58,7 @@ docker compose -f docker-compose.dev.yml ps
 |---|---|---|---|
 | PostgreSQL | `guardian-plus-postgres` | `localhost:5432`, database `guardian_plus` | `postgres` / `postgres` |
 | pgAdmin | `guardian-plus-pgadmin` | `http://localhost:5050` | `admin@admin.com` / `admin` |
+| Mosquitto | `guardian-plus-mosquitto` | `localhost:1883` (MQTT), `ws://localhost:9001` (WebSocket) | anonymous |
 
 Data is persisted in the `guardian-plus-data` Docker volume, so it survives container restarts.
 
@@ -80,6 +81,25 @@ Run the application (defaults to the `dev` profile):
 ```
 
 The API will be available at `http://localhost:8080`, with interactive API docs at `http://localhost:8080/swagger-ui/index.html`.
+
+In the `dev` profile the backend subscribes to the vital sign telemetry on `ws://localhost:9001`, so readings published by the [IoT simulator](https://github.com/upc-pre-202620-1asi0238-13980-Healthify/guardian-plus-iot-simulator) show up in the live view without extra setup.
+
+### Run the whole stack in Docker
+
+To run the backend and the IoT simulator as containers too, use the `full` profile. The simulator is built from a sibling checkout of `guardian-plus-iot-simulator` (`../../guardian-plus-iot-simulator`); set `SIMULATOR_DIR` if yours lives elsewhere.
+
+```bash
+docker compose -f docker-compose.dev.yml --profile full up -d --build
+```
+
+| Service | Container | Host / URL |
+|---|---|---|
+| Backend | `guardian-plus-backend` | `http://localhost:8080` |
+| IoT simulator | `guardian-plus-simulator` | `http://localhost:5055` (port 5000 is taken by AirPlay on macOS) |
+
+The simulator loads the wearable devices once at startup, so it waits until the backend is up. Stop everything with `docker compose -f docker-compose.dev.yml --profile full down`.
+
+To reach the local backend from the Android emulator, use `http://10.0.2.2:8080/api/v1/` (the emulator's alias for the host machine).
 
 ### Useful database commands
 
@@ -129,6 +149,9 @@ $env:SPRING_PROFILES_ACTIVE="prod"; .\mvnw.cmd spring-boot:run
 | `DATABASE_USER` | PostgreSQL username | `postgres` |
 | `DATABASE_PASSWORD` | PostgreSQL password | `postgres` |
 | `PORT` | Port the application listens on | `8080` |
+| `HEALTH_MONITORING_MQTT_ENABLED` | Subscribe to the vital sign telemetry | `true` in `dev`, `false` otherwise |
+| `HEALTH_MONITORING_MQTT_BROKER_URL` | MQTT broker, over WebSocket (`ws://` or `wss://`) | `ws://localhost:9001` |
+| `HEALTH_MONITORING_MQTT_TOPIC` | Telemetry topic filter | `guardian/vitals/+` |
 
 In the `prod` profile, `DATABASE_URL`, `DATABASE_NAME`, `DATABASE_USER` and `DATABASE_PASSWORD` are required.
 
