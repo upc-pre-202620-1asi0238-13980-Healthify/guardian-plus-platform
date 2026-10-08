@@ -1,8 +1,10 @@
 package com.healthify.guardian.platform.careroutineswellness.domain.repositories;
 
 import com.healthify.guardian.platform.careroutineswellness.domain.model.aggregates.MedicationStock;
+import com.healthify.guardian.platform.careroutineswellness.domain.model.valueobjects.MedicationStockId;
 import com.healthify.guardian.platform.careroutineswellness.domain.model.valueobjects.PersonUnderCareId;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -11,12 +13,20 @@ import java.util.Optional;
 public interface MedicationStockRepository {
 
     /**
-     * Retrieves the single medication stock for a person under care.
+     * Retrieves a medication stock by its unique identifier.
      *
-     * @param personUnderCareId the person whose medication stock is requested
-     * @return the matching medication stock, if one has been created yet
+     * @param id the medication stock identifier
+     * @return the matching medication stock, if found
      */
-    Optional<MedicationStock> findByPersonUnderCareId(PersonUnderCareId personUnderCareId);
+    Optional<MedicationStock> findById(MedicationStockId id);
+
+    /**
+     * Retrieves the stock of every medication taken by a person under care.
+     *
+     * @param personUnderCareId the person whose medication stocks are requested
+     * @return the matching medication stocks, ordered by medication name
+     */
+    List<MedicationStock> findByPersonUnderCareId(PersonUnderCareId personUnderCareId);
 
     /**
      * Persists a medication stock (create or update) and publishes its registered domain events.

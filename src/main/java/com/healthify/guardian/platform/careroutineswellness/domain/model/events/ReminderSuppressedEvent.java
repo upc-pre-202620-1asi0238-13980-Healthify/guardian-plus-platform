@@ -8,7 +8,7 @@ import com.healthify.guardian.platform.careroutineswellness.domain.model.valueob
 import java.time.Instant;
 
 /**
- * Raised when {@code ReminderIssuancePolicy} suppresses a hydration reminder that fell
+ * Raised when a due hydration reminder is suppressed because it fell
  * inside the configured sleep window instead of issuing it.
  */
 public record ReminderSuppressedEvent(

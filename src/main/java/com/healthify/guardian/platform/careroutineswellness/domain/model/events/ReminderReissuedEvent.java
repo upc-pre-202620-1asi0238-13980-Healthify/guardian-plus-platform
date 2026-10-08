@@ -8,7 +8,7 @@ import com.healthify.guardian.platform.careroutineswellness.domain.model.valueob
 import java.time.Instant;
 
 /**
- * Raised when {@code ReminderReissuePolicy} determines a medication reminder must be reissued
+ * Raised when the Reminder Reissue Policy reissues a medication reminder
  * because it was not confirmed within the tolerance window.
  *
  * <p>Republished by {@code ReminderReissuedEventHandler} as a

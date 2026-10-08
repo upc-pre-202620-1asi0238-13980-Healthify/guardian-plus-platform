@@ -5,6 +5,7 @@ import com.healthify.guardian.platform.careroutineswellness.infrastructure.persi
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,5 +15,6 @@ import java.util.UUID;
 @Repository
 public interface SleepCycleRecordPersistenceRepository extends JpaRepository<SleepCycleRecordPersistenceEntity, UUID> {
 
-    List<SleepCycleRecordPersistenceEntity> findByPersonUnderCareIdOrderByStartTimeDesc(PersonUnderCareId personUnderCareId);
+    List<SleepCycleRecordPersistenceEntity> findByPersonUnderCareIdAndEndTimeGreaterThanEqualAndEndTimeLessThanOrderByStartTimeDesc(
+            PersonUnderCareId personUnderCareId, Instant from, Instant to);
 }

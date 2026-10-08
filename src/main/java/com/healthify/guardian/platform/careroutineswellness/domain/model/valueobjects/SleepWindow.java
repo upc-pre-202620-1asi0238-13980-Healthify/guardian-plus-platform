@@ -6,7 +6,7 @@ import java.time.ZoneId;
 
 /**
  * Immutable time-of-day interval configured for the person under care, used by
- * {@code ReminderIssuancePolicy} to decide whether a hydration reminder must be suppressed
+ * {@code Reminder} to decide whether a hydration reminder must be suppressed
  * because it would otherwise wake the person up.
  *
  * <p>The interval may wrap around midnight (e.g. 22:00 to 06:00).</p>

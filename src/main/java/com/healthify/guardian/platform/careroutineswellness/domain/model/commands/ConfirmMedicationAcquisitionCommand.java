@@ -5,8 +5,8 @@ import java.util.UUID;
 /**
  * Command to confirm the acquisition of a new medication package, replenishing the stock.
  *
- * @param personUnderCareId the person whose medication stock must be updated
- * @param dosesAdded         number of doses added to the remaining balance
+ * @param medicationStockId the medication stock to replenish
+ * @param dosesAdded        number of doses added to the remaining balance; a whole package when null
  */
-public record ConfirmMedicationAcquisitionCommand(UUID personUnderCareId, Integer dosesAdded) {
+public record ConfirmMedicationAcquisitionCommand(UUID medicationStockId, Integer dosesAdded) {
 }

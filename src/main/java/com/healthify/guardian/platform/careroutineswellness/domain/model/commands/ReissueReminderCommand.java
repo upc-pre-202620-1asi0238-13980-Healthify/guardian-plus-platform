@@ -4,7 +4,7 @@ import java.util.UUID;
 
 /**
  * Command to reissue a medication reminder that was not confirmed within the tolerance
- * window evaluated by {@code ReminderReissuePolicy}.
+ * window, as decided by the Reminder Reissue Policy.
  *
  * @param reminderId the reminder to reissue
  */

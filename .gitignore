@@ -4,11 +4,13 @@ HELP.md
 
 ### IntelliJ IDEA ###
 .idea
+temp_auto_push.bat
 *.iws
 *.iml
 *.ipr
 
 ### VS Code ###
-.vscode/
 ### Deployment ###
 deploy/.env
+.gitignore
+branch_structure.json

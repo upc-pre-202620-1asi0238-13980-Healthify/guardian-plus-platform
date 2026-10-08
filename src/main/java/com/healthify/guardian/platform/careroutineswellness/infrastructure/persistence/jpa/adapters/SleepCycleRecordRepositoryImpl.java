@@ -8,6 +8,7 @@ import com.healthify.guardian.platform.careroutineswellness.infrastructure.persi
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -15,6 +16,10 @@ import java.util.List;
  */
 @Repository
 public class SleepCycleRecordRepositoryImpl implements SleepCycleRecordRepository {
+
+    /** Bounds used for an open-ended period, so the derived query never receives a null parameter. */
+    private static final Instant UNBOUNDED_FROM = Instant.EPOCH;
+    private static final Instant UNBOUNDED_TO = Instant.parse("9999-12-31T00:00:00Z");
 
     private final SleepCycleRecordPersistenceRepository sleepCycleRecordPersistenceRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -27,8 +32,10 @@ public class SleepCycleRecordRepositoryImpl implements SleepCycleRecordRepositor
     }
 
     @Override
-    public List<SleepCycleRecord> findByPersonUnderCareId(PersonUnderCareId personUnderCareId) {
-        return sleepCycleRecordPersistenceRepository.findByPersonUnderCareIdOrderByStartTimeDesc(personUnderCareId)
+    public List<SleepCycleRecord> findByPersonUnderCareId(PersonUnderCareId personUnderCareId, Instant from, Instant to) {
+        return sleepCycleRecordPersistenceRepository
+                .findByPersonUnderCareIdAndEndTimeGreaterThanEqualAndEndTimeLessThanOrderByStartTimeDesc(
+                        personUnderCareId, from != null ? from : UNBOUNDED_FROM, to != null ? to : UNBOUNDED_TO)
                 .stream()
                 .map(SleepCycleRecordPersistenceAssembler::toDomainFromPersistence)
                 .toList();
