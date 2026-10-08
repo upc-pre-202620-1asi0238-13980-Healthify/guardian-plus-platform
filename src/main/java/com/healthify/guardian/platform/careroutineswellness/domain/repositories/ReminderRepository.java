@@ -3,6 +3,7 @@ package com.healthify.guardian.platform.careroutineswellness.domain.repositories
 import com.healthify.guardian.platform.careroutineswellness.domain.model.aggregates.Reminder;
 import com.healthify.guardian.platform.careroutineswellness.domain.model.valueobjects.PersonUnderCareId;
 import com.healthify.guardian.platform.careroutineswellness.domain.model.valueobjects.ReminderId;
+import com.healthify.guardian.platform.careroutineswellness.domain.model.valueobjects.ReminderType;
 
 import java.time.Instant;
 import java.util.List;
@@ -22,30 +23,41 @@ public interface ReminderRepository {
     Optional<Reminder> findById(ReminderId id);
 
     /**
-     * Retrieves every reminder scheduled for a person under care.
+     * Retrieves the reminders scheduled for a person under care, optionally narrowed to a period and a type.
      *
      * @param personUnderCareId the person whose reminders are requested
-     * @return the matching reminders, most relevant first
+     * @param from              earliest scheduled time, inclusive; unbounded when null
+     * @param to                latest scheduled time, exclusive; unbounded when null
+     * @param type              only reminders of this type; every type when null
+     * @return the matching reminders, ordered by scheduled time
      */
-    List<Reminder> findByPersonUnderCareId(PersonUnderCareId personUnderCareId);
+    List<Reminder> findByPersonUnderCareId(PersonUnderCareId personUnderCareId, Instant from, Instant to, ReminderType type);
 
     /**
-     * Retrieves every scheduled reminder whose scheduled time has already been reached,
+     * Retrieves the still-active (scheduled, issued or reissued) reminders of one type for a person under care.
+     *
+     * @param personUnderCareId the person whose reminders are requested
+     * @param type              the reminder type
+     * @return the matching reminders, ordered by scheduled time
+     */
+    List<Reminder> findActiveByPersonUnderCareIdAndType(PersonUnderCareId personUnderCareId, ReminderType type);
+
+    /**
+     * Retrieves every scheduled reminder whose notification time has already been reached,
      * for {@code ReminderDueCheckScheduler} to issue.
      *
-     * @param currentTime the time to compare each reminder's scheduled time against
+     * @param currentTime the time to compare each reminder's notification time against
      * @return the reminders due for issuance
      */
     List<Reminder> findDueForIssuance(Instant currentTime);
 
     /**
-     * Retrieves every issued medication reminder that {@code ReminderReissuePolicy} determines
-     * is overdue for reissuing, for {@code ReminderReissueScheduler} to reissue.
+     * Retrieves every reminder issued once and still waiting for the person's confirmation, for
+     * {@code ReminderReissueScheduler} to decide which ones are overdue.
      *
-     * @param currentTime the time to evaluate the reissue tolerance against
-     * @return the reminders overdue for reissue
+     * @return the issued reminders awaiting confirmation
      */
-    List<Reminder> findOverdueForReissue(Instant currentTime);
+    List<Reminder> findAwaitingConfirmation();
 
     /**
      * Persists a reminder (create or update) and publishes its registered domain events.
