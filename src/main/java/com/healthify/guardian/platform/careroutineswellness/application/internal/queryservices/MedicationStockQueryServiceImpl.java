@@ -2,10 +2,12 @@ package com.healthify.guardian.platform.careroutineswellness.application.interna
 
 import com.healthify.guardian.platform.careroutineswellness.application.queryservices.MedicationStockQueryService;
 import com.healthify.guardian.platform.careroutineswellness.domain.model.aggregates.MedicationStock;
-import com.healthify.guardian.platform.careroutineswellness.domain.model.queries.GetMedicationStockStatusQuery;
+import com.healthify.guardian.platform.careroutineswellness.domain.model.queries.GetMedicationStockByIdQuery;
+import com.healthify.guardian.platform.careroutineswellness.domain.model.queries.GetMedicationStocksByPersonUnderCareIdQuery;
 import com.healthify.guardian.platform.careroutineswellness.domain.repositories.MedicationStockRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -21,7 +23,12 @@ public class MedicationStockQueryServiceImpl implements MedicationStockQueryServ
     }
 
     @Override
-    public Optional<MedicationStock> handle(GetMedicationStockStatusQuery query) {
+    public Optional<MedicationStock> handle(GetMedicationStockByIdQuery query) {
+        return medicationStockRepository.findById(query.medicationStockId());
+    }
+
+    @Override
+    public List<MedicationStock> handle(GetMedicationStocksByPersonUnderCareIdQuery query) {
         return medicationStockRepository.findByPersonUnderCareId(query.personUnderCareId());
     }
 }

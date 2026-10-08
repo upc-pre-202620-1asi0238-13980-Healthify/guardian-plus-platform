@@ -5,7 +5,7 @@ import com.healthify.guardian.platform.careroutineswellness.infrastructure.persi
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -14,5 +14,5 @@ import java.util.UUID;
 @Repository
 public interface MedicationStockPersistenceRepository extends JpaRepository<MedicationStockPersistenceEntity, UUID> {
 
-    Optional<MedicationStockPersistenceEntity> findByPersonUnderCareId(PersonUnderCareId personUnderCareId);
+    List<MedicationStockPersistenceEntity> findByPersonUnderCareIdOrderByMedicationName(PersonUnderCareId personUnderCareId);
 }
