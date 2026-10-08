@@ -14,8 +14,11 @@ public final class ConfirmMedicationAcquisitionCommandFromResourceAssembler {
     private ConfirmMedicationAcquisitionCommandFromResourceAssembler() {
     }
 
+    /**
+     * @param resource the request body; when absent, a whole package is added
+     */
     public static ConfirmMedicationAcquisitionCommand toCommandFromResource(
-            UUID personUnderCareId, ConfirmMedicationAcquisitionResource resource) {
-        return new ConfirmMedicationAcquisitionCommand(personUnderCareId, resource.dosesAdded());
+            UUID medicationStockId, ConfirmMedicationAcquisitionResource resource) {
+        return new ConfirmMedicationAcquisitionCommand(medicationStockId, resource == null ? null : resource.dosesAdded());
     }
 }

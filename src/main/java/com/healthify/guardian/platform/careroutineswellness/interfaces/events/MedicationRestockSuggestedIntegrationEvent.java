@@ -12,10 +12,12 @@ import java.util.UUID;
  *
  * @param personUnderCareId the person whose medication stock needs replenishing
  * @param medicationStockId  the affected medication stock
+ * @param medicationName     name of the medication running low
  * @param suggestedAt        when the suggestion was raised
  */
 public record MedicationRestockSuggestedIntegrationEvent(
         UUID personUnderCareId,
         UUID medicationStockId,
+        String medicationName,
         Instant suggestedAt) {
 }

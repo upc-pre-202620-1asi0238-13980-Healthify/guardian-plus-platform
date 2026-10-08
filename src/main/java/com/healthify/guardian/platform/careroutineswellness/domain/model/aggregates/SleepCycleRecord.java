@@ -8,6 +8,7 @@ import com.healthify.guardian.platform.careroutineswellness.domain.model.valueob
 import com.healthify.guardian.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
 import lombok.Getter;
 
+import java.time.Duration;
 import java.time.Instant;
 
 /**
@@ -17,10 +18,17 @@ import java.time.Instant;
 public class SleepCycleRecord extends AbstractDomainAggregateRoot<SleepCycleRecord> {
 
     /**
-     * A sleep cycle with more interruptions than this is classified as fragmented rather
-     * than regular.
+     * Business rule from the report: a night with more interruptions than this is classified as
+     * fragmented rather than regular.
      */
-    private static final int FRAGMENTED_INTERRUPTION_THRESHOLD = 2;
+    private static final int FRAGMENTED_INTERRUPTION_THRESHOLD = 4;
+    /** Interruptions at which continuity drops to zero. */
+    private static final double MAX_SCORED_INTERRUPTIONS = 8.0;
+    /** Hours of sleep considered a complete night when scoring continuity. */
+    private static final double FULL_NIGHT_HOURS = 8.0;
+
+    private static final String TIMES_INVALID_MESSAGE_KEY = "sleep-cycle-record.times.invalid";
+    private static final String INTERRUPTIONS_INVALID_MESSAGE_KEY = "sleep-cycle-record.interruption-count.invalid";
 
     private SleepCycleRecordId id;
     private PersonUnderCareId personUnderCareId;
@@ -35,6 +43,12 @@ public class SleepCycleRecord extends AbstractDomainAggregateRoot<SleepCycleReco
 
     /** Creates and classifies a new closed sleep cycle from a recording command. */
     public SleepCycleRecord(RecordSleepCycleCommand command) {
+        if (command.startTime() == null || command.endTime() == null || !command.endTime().isAfter(command.startTime())) {
+            throw new IllegalArgumentException(TIMES_INVALID_MESSAGE_KEY);
+        }
+        if (command.interruptionCount() == null || command.interruptionCount() < 0) {
+            throw new IllegalArgumentException(INTERRUPTIONS_INVALID_MESSAGE_KEY);
+        }
         this.id = SleepCycleRecordId.generate();
         this.personUnderCareId = new PersonUnderCareId(command.personUnderCareId());
         this.startTime = command.startTime();
@@ -53,6 +67,23 @@ public class SleepCycleRecord extends AbstractDomainAggregateRoot<SleepCycleReco
         return interruptionCount != null && interruptionCount > FRAGMENTED_INTERRUPTION_THRESHOLD
                 ? SleepClassification.FRAGMENTED
                 : SleepClassification.REGULAR;
+    }
+
+    /** Total time asleep, in whole minutes. */
+    public long durationMinutes() {
+        return Duration.between(startTime, endTime).toMinutes();
+    }
+
+    /**
+     * Scores how continuous the night was, from 0 to 100: every interruption lowers the score, and so does
+     * a night shorter than a full one.
+     *
+     * @return the continuity score, as a percentage
+     */
+    public int continuityScore() {
+        var interruptionFactor = Math.max(0.0, 1.0 - interruptionCount / MAX_SCORED_INTERRUPTIONS);
+        var lengthFactor = Math.min(durationMinutes() / 60.0 / FULL_NIGHT_HOURS, 1.0);
+        return (int) Math.round(interruptionFactor * lengthFactor * 100);
     }
 
     /** Restores an identity and state from persistence. Used by the persistence assembler. */

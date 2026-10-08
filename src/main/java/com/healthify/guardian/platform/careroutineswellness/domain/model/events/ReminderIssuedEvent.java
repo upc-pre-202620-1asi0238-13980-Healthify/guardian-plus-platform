@@ -8,7 +8,7 @@ import com.healthify.guardian.platform.careroutineswellness.domain.model.valueob
 import java.time.Instant;
 
 /**
- * Raised when {@code ReminderIssuancePolicy} decides a reminder must be issued.
+ * Raised when a due reminder is issued to the person under care.
  */
 public record ReminderIssuedEvent(
         ReminderId reminderId,

@@ -22,6 +22,7 @@ public class MedicationRestockSuggestedEventHandler {
     @EventListener
     public void on(MedicationRestockSuggestedEvent event) {
         eventPublisher.publishEvent(new MedicationRestockSuggestedIntegrationEvent(
-                event.personUnderCareId().value(), event.medicationStockId().value(), event.suggestedAt()));
+                event.personUnderCareId().value(), event.medicationStockId().value(), event.medicationName(),
+                event.suggestedAt()));
     }
 }

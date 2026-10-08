@@ -12,6 +12,20 @@ public final class ScheduleReminderCommandFromResourceAssembler {
     }
 
     public static ScheduleReminderCommand toCommandFromResource(ScheduleReminderResource resource) {
-        return new ScheduleReminderCommand(resource.personUnderCareId(), resource.type(), resource.scheduledTime());
+        var recurrence = resource.recurrence();
+        return new ScheduleReminderCommand(
+                resource.personUnderCareId(),
+                resource.type(),
+                resource.scheduledTime(),
+                resource.title(),
+                resource.dosage(),
+                resource.instructions(),
+                resource.location(),
+                resource.durationMinutes(),
+                resource.leadTimeMinutes(),
+                resource.medicationStockId(),
+                recurrence == null ? null : recurrence.frequency(),
+                recurrence == null ? null : recurrence.daysOfWeek(),
+                recurrence == null ? null : recurrence.intervalHours());
     }
 }

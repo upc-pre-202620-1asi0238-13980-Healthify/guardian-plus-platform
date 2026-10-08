@@ -1,8 +1,8 @@
 package com.healthify.guardian.platform.careroutineswellness.application.commandservices;
 
 import com.healthify.guardian.platform.careroutineswellness.domain.model.aggregates.ActivityMonitor;
-import com.healthify.guardian.platform.careroutineswellness.domain.model.commands.RecordActivityResumedCommand;
-import com.healthify.guardian.platform.careroutineswellness.domain.model.commands.RecordProlongedInactivityCommand;
+import com.healthify.guardian.platform.careroutineswellness.domain.model.commands.ConfigureInactivityDetectionCommand;
+import com.healthify.guardian.platform.careroutineswellness.domain.model.commands.RecordActivitySampleCommand;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.application.result.Result;
 
@@ -12,18 +12,18 @@ import com.healthify.guardian.platform.shared.application.result.Result;
 public interface ActivityMonitorCommandService {
 
     /**
-     * Records that prolonged physical inactivity was detected for a person under care.
+     * Applies a periodic kinematic sample reported by the wearable device.
      *
-     * @param command the inactivity telemetry
+     * @param command the activity telemetry
      * @return the updated activity monitor or an application error
      */
-    Result<ActivityMonitor, ApplicationError> handle(RecordProlongedInactivityCommand command);
+    Result<ActivityMonitor, ApplicationError> handle(RecordActivitySampleCommand command);
 
     /**
-     * Records that physical activity resumed for a person under care.
+     * Changes how prolonged inactivity is detected for a person under care.
      *
-     * @param command the activity-resumed telemetry
+     * @param command the new detection settings
      * @return the updated activity monitor or an application error
      */
-    Result<ActivityMonitor, ApplicationError> handle(RecordActivityResumedCommand command);
+    Result<ActivityMonitor, ApplicationError> handle(ConfigureInactivityDetectionCommand command);
 }

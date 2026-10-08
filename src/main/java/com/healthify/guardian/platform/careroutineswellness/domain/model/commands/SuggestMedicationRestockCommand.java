@@ -3,10 +3,10 @@ package com.healthify.guardian.platform.careroutineswellness.domain.model.comman
 import java.util.UUID;
 
 /**
- * Command to evaluate whether the medication stock of a person under care warrants
- * suggesting a restock, per {@code MedicationStockPolicy}.
+ * Command to evaluate whether a medication stock warrants suggesting a restock, per
+ * the Restock Policy.
  *
- * @param personUnderCareId the person whose medication stock must be evaluated
+ * @param medicationStockId the medication stock that must be evaluated
  */
-public record SuggestMedicationRestockCommand(UUID personUnderCareId) {
+public record SuggestMedicationRestockCommand(UUID medicationStockId) {
 }
