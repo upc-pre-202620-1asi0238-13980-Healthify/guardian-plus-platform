@@ -8,17 +8,15 @@ import com.healthify.guardian.platform.careroutineswellness.domain.model.valueob
 import java.time.Instant;
 
 /**
- * Raised when a due hydration reminder is suppressed because it fell
- * inside the configured sleep window instead of issuing it.
+ * Raised when the family member reviews an unconfirmed reminder and closes it as missed.
  */
-public record ReminderSuppressedEvent(
+public record ReminderMissedEvent(
         ReminderId reminderId,
         PersonUnderCareId personUnderCareId,
         ReminderType type,
-        Instant suppressedAt) {
+        Instant missedAt) {
 
-    public static ReminderSuppressedEvent from(Reminder reminder, Instant suppressedAt) {
-        return new ReminderSuppressedEvent(
-                reminder.getId(), reminder.getPersonUnderCareId(), reminder.getType(), suppressedAt);
+    public static ReminderMissedEvent from(Reminder reminder, Instant missedAt) {
+        return new ReminderMissedEvent(reminder.getId(), reminder.getPersonUnderCareId(), reminder.getType(), missedAt);
     }
 }
