@@ -14,10 +14,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
  * JPA persistence entity for activity monitors. One row per person under care.
+ *
+ * <p>Columns added after the first release are nullable so {@code ddl-auto=update} can add them to a table
+ * that already has rows; the persistence assembler fills in the defaults for those legacy rows.</p>
  */
 @Entity
 @Table(name = "activity_monitors")
@@ -36,4 +40,25 @@ public class ActivityMonitorPersistenceEntity extends AuditableAbstractPersisten
 
     @Column(name = "inactivity_since")
     private Instant inactivitySince;
+
+    @Column(name = "detection_enabled")
+    private Boolean detectionEnabled;
+
+    @Column(name = "inactivity_threshold_minutes")
+    private Integer inactivityThresholdMinutes;
+
+    @Column(name = "inactive_minutes", precision = 10, scale = 1)
+    private BigDecimal inactiveMinutes;
+
+    @Column(name = "last_movement_at")
+    private Instant lastMovementAt;
+
+    @Column(name = "last_sample_at")
+    private Instant lastSampleAt;
+
+    @Column(name = "active_since")
+    private Instant activeSince;
+
+    @Column(name = "active_streak_steps")
+    private Integer activeStreakSteps;
 }
