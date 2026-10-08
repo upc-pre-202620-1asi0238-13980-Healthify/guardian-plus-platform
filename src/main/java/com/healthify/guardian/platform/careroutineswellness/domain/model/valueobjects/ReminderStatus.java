@@ -9,5 +9,6 @@ public enum ReminderStatus {
     CONFIRMED,
     CANCELLED,
     REISSUED,
-    SUPPRESSED
+    SUPPRESSED,
+    MISSED
 }

@@ -4,7 +4,7 @@ import java.util.UUID;
 
 /**
  * Command to issue a reminder that has just become due, applying
- * {@code ReminderIssuancePolicy}'s outcome.
+ * the Reminder Issuance Policy (the reminder may end up suppressed instead).
  *
  * @param reminderId the reminder to issue
  */
