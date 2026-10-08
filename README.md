@@ -29,7 +29,7 @@ Cross-cutting concerns (result wrappers, i18n, persistence naming strategy, API 
 | Context | Responsibility | Base path                                        |
 |---|---|--------------------------------------------------|
 | `emergencyalerting` | Alerts raised by falls, SOS and other risk signals, their dispatch and escalation to the emergency contacts, and the incidents that follow | `/api/v1/alerts`, `/api/v1/incidents`, `/api/v1/alert-settings`, `/api/v1/emergency-contacts`, `/api/v1/alert-channel-settings` |
-| `careroutineswellness` | Care routines, medication reminders, medication stock and wearable wellness data (activity and sleep) | `/api/v1/reminders`, `/api/v1/medication-stocks` |
+| `careroutineswellness` | Care routines, medication reminders, medication stock and wearable wellness data (activity and sleep) | `/api/v1/reminders`, `/api/v1/medication-stocks`, `/api/v1/hydration-plans`, `/api/v1/activity-monitors`, `/api/v1/sleep-cycle-records` |
 | `shared` | Shared kernel: i18n, result wrappers, persistence naming strategy, OpenAPI config | —                                                |
 
 ## Getting Started
@@ -152,10 +152,23 @@ $env:SPRING_PROFILES_ACTIVE="prod"; .\mvnw.cmd spring-boot:run
 | `HEALTH_MONITORING_MQTT_ENABLED` | Subscribe to the vital sign telemetry | `true` in `dev`, `false` otherwise |
 | `HEALTH_MONITORING_MQTT_BROKER_URL` | MQTT broker, over WebSocket (`ws://` or `wss://`) | `ws://localhost:9001` |
 | `HEALTH_MONITORING_MQTT_TOPIC` | Telemetry topic filter | `guardian/vitals/+` |
+| `CARE_ROUTINES_WELLNESS_MQTT_ENABLED` | Subscribe to the activity (`guardian/activity/+`) and sleep (`guardian/sleep/+`) telemetry | `true` in `dev`, `false` otherwise |
+| `CARE_ROUTINES_WELLNESS_MQTT_BROKER_URL` | MQTT broker, over WebSocket (`ws://` or `wss://`) | `ws://localhost:9001` |
 
 In the `prod` profile, `DATABASE_URL`, `DATABASE_NAME`, `DATABASE_USER` and `DATABASE_PASSWORD` are required.
 
 The schema is currently managed by Hibernate (`ddl-auto=update`).
+
+`ddl-auto=update` adds columns and tables but never drops or updates constraints. A database created before the Care Routines & Wellness frontend alignment still has:
+
+- a unique constraint on `medication_stocks.person_under_care_id`, which rejects a second medication for the same person;
+- a `reminders_status_check` constraint without the `MISSED` status, which rejects marking a reminder as missed.
+
+The simplest fix is to drop the context's old tables once and let Hibernate recreate them on the next start (this deletes their rows, so back them up first if they matter):
+
+```sql
+DROP TABLE IF EXISTS activity_monitors, medication_stocks, reminders, sleep_cycle_records;
+```
 
 ### Emergency & Alerting
 
@@ -167,6 +180,18 @@ The schema is currently managed by Hibernate (`ddl-auto=update`).
 | `emergency-alerting.api.allow-any-alert-source` | Allow any alert source in `POST /api/v1/alerts`, not only falls and SOS | `true` in `dev`, `false` otherwise |
 
 Push and SMS notifications are simulated (logged) until their providers are integrated; in-app alerts are served through `GET /api/v1/alerts/pending/recipient/{userId}`.
+
+### Care Routines & Wellness
+
+| Property | Description | Default |
+|---|---|---|
+| `care-routines-wellness.zone-id` | Zone the sleep window, daily reminders and adherence days are evaluated in | `America/Lima` |
+| `care-routines-wellness.sleep-window.start` / `.end` | Sleep window: hydration reminders inside it are suppressed and inactivity is only watched outside of it | `22:00` / `07:00` |
+| `care-routines-wellness.reminder.reissue-tolerance-minutes` | Minutes an issued medication reminder waits for confirmation before it is reissued | `10` |
+| `care-routines-wellness.medication-stock.restock-threshold-days` | Days of supply at or below which a restock is suggested | `3` |
+| `care-routines-wellness.medication-stock.doses-per-medication-confirmation` | Doses discounted from the stock per confirmed medication reminder | `1` |
+
+Recurring reminders (`DAILY`, `WEEKLY`, `HOURLY`) are stored one occurrence at a time: the next occurrence is scheduled when the current one is issued, so adherence is measured dose by dose (`GET /api/v1/reminders/citizen/{id}/adherence`).
 
 ### Internationalization
 
