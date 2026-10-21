@@ -2,7 +2,7 @@ package com.healthify.guardian.platform.mobilitygeofencing.application.internal.
 
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.aggregates.SafeZone;
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.commands.*;
-import com.healthify.guardian.platform.mobilitygeofencing.domain.model.events.SafeZoneCreatedEvent;
+import com.healthify.guardian.platform.mobilitygeofencing.domain.model.events.*;
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.*;
 import com.healthify.guardian.platform.mobilitygeofencing.domain.repositories.SafeZoneRepository;
 import org.springframework.context.ApplicationEventPublisher;
@@ -27,43 +27,53 @@ public class SafeZoneCommandService {
     public SafeZoneId handle(CreateSafeZoneCommand command) {
         SafeZone safeZone = new SafeZone(command);
         safeZoneRepository.save(safeZone);
-
-        SafeZoneCreatedEvent event = new SafeZoneCreatedEvent(
-                safeZone.getId(),
-                safeZone.getFragileCitizenId(),
-                Instant.now()
-        );
-        eventPublisher.publishEvent(event);
-
+        eventPublisher.publishEvent(new SafeZoneCreatedEvent(safeZone.getId(), safeZone.getFragileCitizenId(), Instant.now()));
         return safeZone.getId();
     }
+
     @Transactional
     public void handle(UpdateSafeZoneCommand command) {
         SafeZone safeZone = safeZoneRepository.findById(new SafeZoneId(command.safeZoneId()))
-                .orElseThrow(() -> new IllegalArgumentException("Geocerca no encontrada con el ID especificado."));
+                .orElseThrow(() -> new IllegalArgumentException("Geocerca no encontrada."));
 
         SafeZoneBoundary updatedBoundary = new SafeZoneBoundary(command.center(), command.radiusInMeters());
         safeZone.updateBoundary(updatedBoundary);
-
         safeZoneRepository.save(safeZone);
+
+        eventPublisher.publishEvent(new SafeZoneUpdatedEvent(safeZone.getId()));
     }
 
     @Transactional
     public void handle(ActivateSafeZoneCommand command) {
         SafeZone safeZone = safeZoneRepository.findById(new SafeZoneId(command.safeZoneId()))
-                .orElseThrow(() -> new IllegalArgumentException("Geocerca no encontrada con el ID especificado."));
+                .orElseThrow(() -> new IllegalArgumentException("Geocerca no encontrada."));
 
         safeZone.activate();
         safeZoneRepository.save(safeZone);
+
+        eventPublisher.publishEvent(new SafeZoneActivatedEvent(safeZone.getId()));
     }
 
     @Transactional
     public void handle(DeactivateSafeZoneCommand command) {
         SafeZone safeZone = safeZoneRepository.findById(new SafeZoneId(command.safeZoneId()))
-                .orElseThrow(() -> new IllegalArgumentException("Geocerca no encontrada con el ID especificado."));
+                .orElseThrow(() -> new IllegalArgumentException("Geocerca no encontrada."));
 
         safeZone.deactivate();
         safeZoneRepository.save(safeZone);
+
+        eventPublisher.publishEvent(new SafeZoneDeactivatedEvent(safeZone.getId()));
+    }
+
+    @Transactional
+    public void handle(DeleteSafeZoneCommand command) {
+        SafeZoneId safeZoneId = new SafeZoneId(command.safeZoneId());
+        safeZoneRepository.findById(safeZoneId)
+                .orElseThrow(() -> new IllegalArgumentException("Geocerca no encontrada."));
+
+        safeZoneRepository.delete(safeZoneId);
+
+        eventPublisher.publishEvent(new SafeZoneDeletedEvent(safeZoneId));
     }
 
     @Transactional(readOnly = true)
