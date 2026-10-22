@@ -1,6 +1,5 @@
 package com.healthify.guardian.platform.iam.domain.model.aggregates;
 
-import com.healthify.guardian.platform.iam.domain.model.commands.GenerateOtpCommand;
 import com.healthify.guardian.platform.iam.domain.model.events.OtpGeneratedEvent;
 import com.healthify.guardian.platform.iam.domain.model.events.OtpVerifiedEvent;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedSecret;
@@ -12,7 +11,6 @@ import com.healthify.guardian.platform.shared.domain.model.aggregates.AbstractDo
 import lombok.Getter;
 
 import java.time.Instant;
-import java.util.Locale;
 
 /**
  * Aggregate root for a one-time code sent to the user's e-mail, either as the second factor of a login or to
@@ -27,6 +25,7 @@ public class OneTimePassword extends AbstractDomainAggregateRoot<OneTimePassword
     /** Wrong guesses allowed before the code is locked, so a 6-digit code cannot be brute-forced. */
     public static final int MAX_FAILED_ATTEMPTS = 5;
 
+    private static final String USER_ACCOUNT_ID_INVALID_KEY = "user-account.id.invalid";
     private static final String CODE_HASH_INVALID_KEY = "hashed-secret.invalid";
     private static final String PURPOSE_INVALID_KEY = "otp.purpose.invalid";
     private static final String EXPIRES_AT_INVALID_KEY = "otp.expires-at.invalid";
@@ -48,12 +47,19 @@ public class OneTimePassword extends AbstractDomainAggregateRoot<OneTimePassword
     /**
      * Issues a new code. Registers {@link OtpGeneratedEvent}.
      *
-     * @param command   the account and purpose of the code
-     * @param codeHash  the hash of the generated code, produced by the {@link SecretHasher}
-     * @param expiresAt when the code stops being accepted; must be in the future
+     * @param userAccountId the account the code is sent to
+     * @param purpose       what the code is for
+     * @param codeHash      the hash of the generated code, produced by the {@link SecretHasher}
+     * @param expiresAt     when the code stops being accepted; must be in the future
      */
-    public OneTimePassword(GenerateOtpCommand command, HashedSecret codeHash, Instant expiresAt) {
+    public OneTimePassword(UserAccountId userAccountId, OtpPurpose purpose, HashedSecret codeHash, Instant expiresAt) {
         var now = Instant.now();
+        if (userAccountId == null) {
+            throw new IllegalArgumentException(USER_ACCOUNT_ID_INVALID_KEY);
+        }
+        if (purpose == null) {
+            throw new IllegalArgumentException(PURPOSE_INVALID_KEY);
+        }
         if (codeHash == null) {
             throw new IllegalArgumentException(CODE_HASH_INVALID_KEY);
         }
@@ -61,9 +67,9 @@ public class OneTimePassword extends AbstractDomainAggregateRoot<OneTimePassword
             throw new IllegalArgumentException(EXPIRES_AT_INVALID_KEY);
         }
         this.id = OtpId.generate();
-        this.userAccountId = new UserAccountId(command.userAccountId());
+        this.userAccountId = userAccountId;
         this.codeHash = codeHash;
-        this.purpose = parsePurpose(command.purpose());
+        this.purpose = purpose;
         this.expiresAt = expiresAt;
         this.failedAttempts = 0;
         this.createdAt = now;
@@ -123,17 +129,6 @@ public class OneTimePassword extends AbstractDomainAggregateRoot<OneTimePassword
     /** Whether the code reached the maximum number of wrong guesses. */
     public boolean isLocked() {
         return failedAttempts >= MAX_FAILED_ATTEMPTS;
-    }
-
-    private static OtpPurpose parsePurpose(String purpose) {
-        if (purpose == null) {
-            throw new IllegalArgumentException(PURPOSE_INVALID_KEY);
-        }
-        try {
-            return OtpPurpose.valueOf(purpose.strip().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(PURPOSE_INVALID_KEY);
-        }
     }
 
     /** Restores state from persistence. Used by the persistence assembler. */
