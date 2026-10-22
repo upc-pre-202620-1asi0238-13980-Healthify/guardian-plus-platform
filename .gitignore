@@ -12,5 +12,8 @@ temp_auto_push.bat
 ### VS Code ###
 ### Deployment ###
 deploy/.env
+
+### Local secrets (Brevo key, JWT and HMAC keys), loaded by Spring Boot from ./config ###
+/config/
 .gitignore
 branch_structure.json
