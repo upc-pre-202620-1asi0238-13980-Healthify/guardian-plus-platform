@@ -8,6 +8,7 @@ import com.healthify.guardian.platform.iam.interfaces.rest.resources.LoginResour
 import com.healthify.guardian.platform.iam.interfaces.rest.resources.OtpChallengeResource;
 import com.healthify.guardian.platform.iam.interfaces.rest.resources.RegisterUserCredentialsResource;
 import com.healthify.guardian.platform.iam.interfaces.rest.resources.RequestPasswordResetResource;
+import com.healthify.guardian.platform.iam.interfaces.rest.resources.ResendLoginOtpResource;
 import com.healthify.guardian.platform.iam.interfaces.rest.resources.ResetPasswordResource;
 import com.healthify.guardian.platform.iam.interfaces.rest.resources.SendEmailVerificationRequestResource;
 import com.healthify.guardian.platform.iam.interfaces.rest.resources.UserAccountResource;
@@ -17,6 +18,7 @@ import com.healthify.guardian.platform.iam.interfaces.rest.transform.Authenticat
 import com.healthify.guardian.platform.iam.interfaces.rest.transform.LoginCommandFromResourceAssembler;
 import com.healthify.guardian.platform.iam.interfaces.rest.transform.RegisterUserCredentialsCommandFromResourceAssembler;
 import com.healthify.guardian.platform.iam.interfaces.rest.transform.RequestPasswordResetCommandFromResourceAssembler;
+import com.healthify.guardian.platform.iam.interfaces.rest.transform.ResendLoginOtpCommandFromResourceAssembler;
 import com.healthify.guardian.platform.iam.interfaces.rest.transform.ResetPasswordCommandFromResourceAssembler;
 import com.healthify.guardian.platform.iam.interfaces.rest.transform.SendEmailVerificationRequestCommandFromResourceAssembler;
 import com.healthify.guardian.platform.iam.interfaces.rest.transform.UserAccountResourceFromEntityAssembler;
@@ -122,7 +124,8 @@ public class AuthController {
             @ApiResponse(responseCode = "202", description = "Credentials correct, OTP sent",
                     content = @Content(schema = @Schema(implementation = OtpChallengeResource.class))),
             @ApiResponse(responseCode = "401", description = "Wrong e-mail or password", content = @Content(schema = @Schema(implementation = ErrorResource.class))),
-            @ApiResponse(responseCode = "422", description = "E-mail not verified yet", content = @Content(schema = @Schema(implementation = ErrorResource.class)))
+            @ApiResponse(responseCode = "403", description = "Right password, but the e-mail is not verified yet; details carry the user account id",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class)))
     })
     public ResponseEntity<?> login(@Valid @RequestBody LoginResource resource) {
         var result = authenticationCommandService.handle(LoginCommandFromResourceAssembler.toCommandFromResource(resource));
@@ -145,6 +148,20 @@ public class AuthController {
         return toResponseEntity(result,
                 token -> AuthenticatedSessionResourceFromTokenAssembler.toResourceFromToken(resource.userAccountId(), token),
                 HttpStatus.OK);
+    }
+
+    @PostMapping("/otp/resend")
+    @Operation(summary = "Send a new login code",
+            description = "E-mails a new login code (OTP) to an account that passed the password step in the last minutes.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "202", description = "Code sent", content = @Content(schema = @Schema(implementation = MessageResource.class))),
+            @ApiResponse(responseCode = "401", description = "No login in progress for the account", content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "422", description = "Too many codes requested", content = @Content(schema = @Schema(implementation = ErrorResource.class)))
+    })
+    public ResponseEntity<?> resendLoginOtp(@Valid @RequestBody ResendLoginOtpResource resource) {
+        var result = oneTimePasswordCommandService.handle(
+                ResendLoginOtpCommandFromResourceAssembler.toCommandFromResource(resource));
+        return toResponseEntity(result, otp -> message("iam.otp.sent"), HttpStatus.ACCEPTED);
     }
 
     @PostMapping("/password-reset/request")
@@ -174,8 +191,8 @@ public class AuthController {
     }
 
     /**
-     * Like {@link ResponseEntityAssembler}, but answers a failed login or OTP check with {@code 401 Unauthorized},
-     * a status the shared error assembler does not produce.
+     * Like {@link ResponseEntityAssembler}, but answers a failed login or OTP check with {@code 401 Unauthorized} and
+     * an unverified e-mail with {@code 403 Forbidden}, statuses the shared error assembler does not produce.
      */
     private static <T, R> ResponseEntity<?> toResponseEntity(Result<T, ApplicationError> result,
                                                             Function<T, R> successResourceAssembler,
@@ -184,6 +201,11 @@ public class AuthController {
                 && AuthenticationCommandService.AUTHENTICATION_FAILED.equals(failure.error().code())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ErrorResource(failure.error().code(), failure.error().message()));
+        }
+        if (result instanceof Result.Failure<T, ApplicationError> failure
+                && AuthenticationCommandService.EMAIL_NOT_VERIFIED.equals(failure.error().code())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ErrorResource(failure.error().code(), failure.error().message(), failure.error().details()));
         }
         return ResponseEntityAssembler.toResponseEntityFromResult(result, successResourceAssembler, successStatus);
     }
