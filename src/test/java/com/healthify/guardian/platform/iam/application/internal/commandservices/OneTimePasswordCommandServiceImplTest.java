@@ -4,6 +4,7 @@ import com.healthify.guardian.platform.iam.application.outboundservices.EmailNot
 import com.healthify.guardian.platform.iam.domain.model.aggregates.OneTimePassword;
 import com.healthify.guardian.platform.iam.domain.model.aggregates.UserAccount;
 import com.healthify.guardian.platform.iam.domain.model.commands.RegisterUserCredentialsCommand;
+import com.healthify.guardian.platform.iam.domain.model.commands.ResendLoginOtpCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.SendEmailVerificationRequestCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.TriggerTwoFactorCommand;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedPassword;
@@ -43,7 +44,7 @@ class OneTimePasswordCommandServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new OneTimePasswordCommandServiceImpl(userAccountRepository, oneTimePasswordRepository,
-                secretGenerator, secretHasher, emailNotificationSender, 6, 10);
+                secretGenerator, secretHasher, emailNotificationSender, 6, 10, 5, 15);
     }
 
     private static UserAccount account(boolean verified) {
@@ -110,5 +111,43 @@ class OneTimePasswordCommandServiceImplTest {
         var result = service.handle(new TriggerTwoFactorCommand(account.getId().value()));
 
         assertThat(((ApplicationError) ((Result.Failure<?, ?>) result).error()).code()).isEqualTo("UNEXPECTED_ERROR");
+    }
+
+    @Test
+    void stopsIssuingCodesAfterTheLimitOfTheWindow() {
+        var account = account(true);
+        when(userAccountRepository.findById(account.getId())).thenReturn(Optional.of(account));
+        when(oneTimePasswordRepository.countIssuedSince(eq(account.getId()), eq(OtpPurpose.LOGIN), any())).thenReturn(5);
+
+        var result = service.handle(new TriggerTwoFactorCommand(account.getId().value()));
+
+        assertThat(((ApplicationError) ((Result.Failure<?, ?>) result).error()).code()).isEqualTo("BUSINESS_RULE_VIOLATION");
+        verify(emailNotificationSender, never()).sendLoginCode(any(), any(), any());
+    }
+
+    @Test
+    void resendsTheLoginCodeDuringALogin() {
+        var account = account(true);
+        when(userAccountRepository.findById(account.getId())).thenReturn(Optional.of(account));
+        // One code from the password step: a login is in progress and the limit is not reached
+        when(oneTimePasswordRepository.countIssuedSince(eq(account.getId()), eq(OtpPurpose.LOGIN), any())).thenReturn(1);
+        generatesCode();
+        when(emailNotificationSender.sendLoginCode(eq(account.getEmail()), eq("048213"), any())).thenReturn(true);
+
+        var result = service.handle(new ResendLoginOtpCommand(account.getId().value()));
+
+        assertThat(result.isSuccess()).isTrue();
+    }
+
+    @Test
+    void doesNotResendALoginCodeWithoutALoginInProgress() {
+        var account = account(true);
+        when(userAccountRepository.findById(account.getId())).thenReturn(Optional.of(account));
+        when(oneTimePasswordRepository.countIssuedSince(eq(account.getId()), eq(OtpPurpose.LOGIN), any())).thenReturn(0);
+
+        var result = service.handle(new ResendLoginOtpCommand(account.getId().value()));
+
+        assertThat(((ApplicationError) ((Result.Failure<?, ?>) result).error()).code()).isEqualTo("AUTHENTICATION_FAILED");
+        verify(oneTimePasswordRepository, never()).save(any());
     }
 }

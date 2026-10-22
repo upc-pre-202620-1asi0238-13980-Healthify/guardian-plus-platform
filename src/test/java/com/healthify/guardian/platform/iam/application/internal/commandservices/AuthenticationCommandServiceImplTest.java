@@ -98,7 +98,10 @@ class AuthenticationCommandServiceImplTest {
 
         var result = service.handle(new LoginCommand("ana@guardian.pe", "secret-123"));
 
-        assertThat(errorCode(result)).isEqualTo("BUSINESS_RULE_VIOLATION");
+        // The id lets the app continue with the e-mail verification; it is only revealed after the right password
+        assertThat(errorCode(result)).isEqualTo(AuthenticationCommandService.EMAIL_NOT_VERIFIED);
+        assertThat(((ApplicationError) ((Result.Failure<?, ?>) result).error()).details())
+                .isEqualTo(account.getId().value().toString());
     }
 
     @Test

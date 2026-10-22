@@ -110,4 +110,17 @@ class AuthControllerTest {
                         .content("{\"userAccountId\":\"%s\",\"code\":\"12ab\"}".formatted(UUID.randomUUID())))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void anUnverifiedEmailIsForbiddenAndCarriesTheAccountId() throws Exception {
+        var userAccountId = UUID.randomUUID().toString();
+        when(authenticationCommandService.handle(any(LoginCommand.class))).thenReturn(Result.failure(new ApplicationError(
+                AuthenticationCommandService.EMAIL_NOT_VERIFIED, "Verify your e-mail before logging in", userAccountId)));
+
+        mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content(json("ana@guardian.pe", "secret-123")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(AuthenticationCommandService.EMAIL_NOT_VERIFIED))
+                .andExpect(jsonPath("$.details").value(userAccountId));
+    }
 }
