@@ -19,6 +19,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,6 +43,21 @@ public class UserAccountsController {
 
     public UserAccountsController(UserAccountQueryService userAccountQueryService) {
         this.userAccountQueryService = userAccountQueryService;
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Get the signed-in account",
+            description = "Retrieves the account the session token (JWT) belongs to. Requires the token.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Account retrieved",
+                    content = @Content(schema = @Schema(implementation = UserAccountResource.class))),
+            @ApiResponse(responseCode = "401", description = "Missing, invalid or expired token", content = @Content),
+            @ApiResponse(responseCode = "404", description = "The account of the token no longer exists", content = @Content(schema = @Schema(implementation = ErrorResource.class)))
+    })
+    public ResponseEntity<?> getCurrentUserAccount(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
+        // The security filter chain only lets this endpoint through with a valid token, whose subject is the account id
+        var userAccountId = UUID.fromString(jwt.getSubject());
+        return getUserAccount(userAccountId);
     }
 
     @GetMapping("/{userAccountId}")
