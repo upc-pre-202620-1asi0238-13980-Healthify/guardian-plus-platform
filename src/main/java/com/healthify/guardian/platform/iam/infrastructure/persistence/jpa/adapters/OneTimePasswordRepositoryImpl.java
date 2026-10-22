@@ -12,6 +12,7 @@ import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.Date;
 import java.util.Optional;
 
 /**
@@ -49,6 +50,12 @@ public class OneTimePasswordRepositoryImpl implements OneTimePasswordRepository 
                         OneTimePassword.MAX_FAILED_ATTEMPTS, Limit.of(1))
                 .stream().findFirst()
                 .map(OneTimePasswordPersistenceAssembler::toDomainFromPersistence);
+    }
+
+    @Override
+    public int countIssuedSince(UserAccountId userAccountId, OtpPurpose purpose, Instant since) {
+        return persistenceRepository.countByUserAccountIdAndPurposeAndCreatedAtAfter(
+                userAccountId.value(), purpose, Date.from(since));
     }
 
     @Override

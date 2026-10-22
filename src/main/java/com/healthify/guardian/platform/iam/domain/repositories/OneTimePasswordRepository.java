@@ -25,6 +25,12 @@ public interface OneTimePasswordRepository {
                                                                        OtpPurpose purpose, Instant now);
 
     /**
+     * Counts the codes issued to an account for the given purpose since {@code since}, used or not, so issuing
+     * can be rate limited.
+     */
+    int countIssuedSince(UserAccountId userAccountId, OtpPurpose purpose, Instant since);
+
+    /**
      * Deletes the codes that expired before {@code threshold} without being used.
      *
      * @return how many codes were deleted

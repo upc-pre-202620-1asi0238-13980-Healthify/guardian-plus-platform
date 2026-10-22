@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +31,8 @@ public interface OneTimePasswordPersistenceRepository extends JpaRepository<OneT
                                                       @Param("now") Instant now,
                                                       @Param("maxFailedAttempts") int maxFailedAttempts,
                                                       Limit limit);
+
+    int countByUserAccountIdAndPurposeAndCreatedAtAfter(UUID userAccountId, OtpPurpose purpose, Date since);
 
     @Modifying
     @Transactional
