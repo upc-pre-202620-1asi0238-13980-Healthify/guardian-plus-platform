@@ -19,7 +19,7 @@ import java.time.Instant;
  * login identifier, and the account cannot authenticate until that e-mail is verified
  * ({@code PENDING_EMAIL_VERIFICATION → ACTIVE}).
  */
-@Getter
+@Getter 
 public class UserAccount extends AbstractDomainAggregateRoot<UserAccount> {
 
     private static final String PASSWORD_HASH_INVALID_KEY = "user-account.password-hash.invalid";
