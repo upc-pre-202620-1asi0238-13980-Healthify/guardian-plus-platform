@@ -2,12 +2,19 @@ package com.healthify.guardian.platform.iam.domain.model.aggregates;
 
 import com.healthify.guardian.platform.iam.domain.model.commands.RegisterUserCredentialsCommand;
 import com.healthify.guardian.platform.iam.domain.model.events.EmailVerifiedEvent;
-import com.healthify.guardian.platform.iam.domain.model.events.TwoFactorSettingChangedEvent;
+import com.healthify.guardian.platform.iam.domain.model.events.PasswordResetCompletedEvent;
+import com.healthify.guardian.platform.iam.domain.model.events.PasswordResetTokenGeneratedEvent;
+import com.healthify.guardian.platform.iam.domain.model.events.UserAuthenticatedEvent;
 import com.healthify.guardian.platform.iam.domain.model.events.UserCredentialsRegisteredEvent;
+import com.healthify.guardian.platform.iam.domain.model.events.UserLoggedInEvent;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedPassword;
+import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedSecret;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.UserAccountStatus;
 import com.healthify.guardian.platform.iam.domain.services.PasswordHasher;
 import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +39,13 @@ class UserAccountTest {
         return new UserAccount(command, HASHER.hash(command.rawPassword()));
     }
 
+    private static UserAccount verified() {
+        var account = register();
+        account.confirmEmailVerification();
+        account.clearDomainEvents();
+        return account;
+    }
+
     @Test
     void registersPendingEmailVerification() {
         var account = register();
@@ -40,7 +54,6 @@ class UserAccountTest {
         assertThat(account.getEmail().value()).isEqualTo("ana@guardian.pe");
         assertThat(account.getStatus()).isEqualTo(UserAccountStatus.PENDING_EMAIL_VERIFICATION);
         assertThat(account.isEmailVerified()).isFalse();
-        assertThat(account.requiresSecondFactor()).isFalse();
         assertThat(account.canAuthenticate()).isFalse();
         assertThat(account.domainEvents()).singleElement().isInstanceOf(UserCredentialsRegisteredEvent.class);
     }
@@ -69,8 +82,7 @@ class UserAccountTest {
 
     @Test
     void rejectsVerifyingTheEmailTwice() {
-        var account = register();
-        account.confirmEmailVerification();
+        var account = verified();
 
         assertThatThrownBy(account::confirmEmailVerification)
                 .isInstanceOf(IllegalStateException.class)
@@ -78,39 +90,82 @@ class UserAccountTest {
     }
 
     @Test
-    void validatesCredentialsAgainstTheStoredHash() {
-        var account = register();
+    void logsInWithTheRightPassword() {
+        var account = verified();
 
-        assertThat(account.validateCredentials("secret-123", HASHER)).isTrue();
-        assertThat(account.validateCredentials("wrong", HASHER)).isFalse();
-        assertThat(account.validateCredentials(null, HASHER)).isFalse();
+        assertThat(account.logIn("secret-123", HASHER)).isTrue();
+        assertThat(account.domainEvents()).singleElement().isInstanceOf(UserLoggedInEvent.class);
     }
 
     @Test
-    void changingThePasswordReplacesTheHash() {
-        var account = register();
+    void aWrongPasswordDoesNotLogIn() {
+        var account = verified();
 
-        account.changePassword(HASHER.hash("new-secret"));
-
-        assertThat(account.validateCredentials("new-secret", HASHER)).isTrue();
-        assertThat(account.validateCredentials("secret-123", HASHER)).isFalse();
+        assertThat(account.logIn("wrong", HASHER)).isFalse();
+        assertThat(account.logIn(null, HASHER)).isFalse();
+        assertThat(account.domainEvents()).isEmpty();
     }
 
     @Test
-    void togglingTwoFactorRegistersAnEventOnlyWhenItChanges() {
+    void cannotLogInBeforeVerifyingTheEmail() {
         var account = register();
+
+        assertThatThrownBy(() -> account.logIn("secret-123", HASHER))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("user-account.email.not-verified");
+    }
+
+    @Test
+    void authenticatesAVerifiedAccount() {
+        var account = verified();
+
+        account.authenticate();
+
+        assertThat(account.domainEvents()).singleElement().isInstanceOf(UserAuthenticatedEvent.class);
+    }
+
+    @Test
+    void resetsThePasswordWithAPendingToken() {
+        var account = verified();
+        account.generatePasswordResetToken(new HashedSecret("token-hash"), Instant.now().plus(Duration.ofMinutes(30)));
+
+        assertThat(account.hasUsablePasswordResetToken(Instant.now())).isTrue();
+        assertThat(account.domainEvents()).singleElement().isInstanceOf(PasswordResetTokenGeneratedEvent.class);
         account.clearDomainEvents();
 
-        account.enableTwoFactor();
-        account.enableTwoFactor();
+        account.resetPassword(HASHER.hash("new-secret"), Instant.now());
 
-        assertThat(account.requiresSecondFactor()).isTrue();
-        assertThat(account.domainEvents()).singleElement()
-                .isEqualTo(new TwoFactorSettingChangedEvent(account.getId(), true, account.getUpdatedAt()));
+        assertThat(account.logIn("new-secret", HASHER)).isTrue();
+        assertThat(account.getPasswordResetTokenHash()).isNull();
+        assertThat(account.domainEvents()).first().isInstanceOf(PasswordResetCompletedEvent.class);
+    }
 
-        account.disableTwoFactor();
+    @Test
+    void anExpiredResetTokenCannotBeUsed() {
+        var account = verified();
+        account.generatePasswordResetToken(new HashedSecret("token-hash"), Instant.now().plus(Duration.ofMinutes(30)));
+        var afterExpiration = account.getPasswordResetTokenExpiresAt();
 
-        assertThat(account.requiresSecondFactor()).isFalse();
-        assertThat(account.domainEvents()).hasSize(2);
+        assertThatThrownBy(() -> account.resetPassword(HASHER.hash("new-secret"), afterExpiration))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("password-reset-token.invalid");
+    }
+
+    @Test
+    void cannotResetThePasswordWithoutAToken() {
+        var account = verified();
+
+        assertThatThrownBy(() -> account.resetPassword(HASHER.hash("new-secret"), Instant.now()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("password-reset-token.invalid");
+    }
+
+    @Test
+    void rejectsAResetTokenThatIsAlreadyExpired() {
+        var account = verified();
+
+        assertThatThrownBy(() -> account.generatePasswordResetToken(new HashedSecret("token-hash"), Instant.now()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("password-reset-token.expires-at.invalid");
     }
 }

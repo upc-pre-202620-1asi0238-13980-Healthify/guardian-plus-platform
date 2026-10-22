@@ -1,16 +1,15 @@
 package com.healthify.guardian.platform.iam.domain.model.aggregates;
 
-import com.healthify.guardian.platform.iam.domain.model.commands.GenerateOtpCommand;
 import com.healthify.guardian.platform.iam.domain.model.events.OtpGeneratedEvent;
 import com.healthify.guardian.platform.iam.domain.model.events.OtpVerifiedEvent;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedSecret;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.OtpPurpose;
+import com.healthify.guardian.platform.iam.domain.model.valueobjects.UserAccountId;
 import com.healthify.guardian.platform.iam.domain.services.SecretHasher;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,14 +31,14 @@ class OneTimePasswordTest {
         }
     };
 
-    private static OneTimePassword issue(String purpose) {
+    private static OneTimePassword issue(OtpPurpose purpose) {
         var expiresAt = Instant.now().plus(Duration.ofMinutes(5));
-        return new OneTimePassword(new GenerateOtpCommand(UUID.randomUUID(), purpose), HASHER.hash(CODE), expiresAt);
+        return new OneTimePassword(UserAccountId.generate(), purpose, HASHER.hash(CODE), expiresAt);
     }
 
     @Test
     void issuesAUsableCodeForItsPurpose() {
-        var otp = issue("email_verification");
+        var otp = issue(OtpPurpose.EMAIL_VERIFICATION);
 
         assertThat(otp.getPurpose()).isEqualTo(OtpPurpose.EMAIL_VERIFICATION);
         assertThat(otp.isUsable(Instant.now())).isTrue();
@@ -48,24 +47,23 @@ class OneTimePasswordTest {
     }
 
     @Test
-    void rejectsAnUnknownPurpose() {
-        assertThatThrownBy(() -> issue("PASSWORD_RESET"))
+    void requiresAPurpose() {
+        assertThatThrownBy(() -> issue(null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("otp.purpose.invalid");
     }
 
     @Test
     void rejectsAnExpirationThatIsNotInTheFuture() {
-        var command = new GenerateOtpCommand(UUID.randomUUID(), "LOGIN");
-
-        assertThatThrownBy(() -> new OneTimePassword(command, HASHER.hash(CODE), Instant.now().minusSeconds(1)))
+        assertThatThrownBy(() -> new OneTimePassword(UserAccountId.generate(), OtpPurpose.LOGIN, HASHER.hash(CODE),
+                Instant.now().minusSeconds(1)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("otp.expires-at.invalid");
     }
 
     @Test
     void theRightCodeIsConsumedAndCannotBeUsedAgain() {
-        var otp = issue("LOGIN");
+        var otp = issue(OtpPurpose.LOGIN);
         otp.clearDomainEvents();
         var now = Instant.now();
 
@@ -79,7 +77,7 @@ class OneTimePasswordTest {
 
     @Test
     void aWrongCodeCountsAsAFailedAttempt() {
-        var otp = issue("LOGIN");
+        var otp = issue(OtpPurpose.LOGIN);
 
         assertThat(otp.verify("111111", HASHER, Instant.now())).isFalse();
         assertThat(otp.verify(null, HASHER, Instant.now())).isFalse();
@@ -90,7 +88,7 @@ class OneTimePasswordTest {
 
     @Test
     void locksAfterTooManyWrongCodes() {
-        var otp = issue("LOGIN");
+        var otp = issue(OtpPurpose.LOGIN);
         for (int i = 0; i < OneTimePassword.MAX_FAILED_ATTEMPTS; i++) {
             otp.verify("111111", HASHER, Instant.now());
         }
@@ -102,7 +100,7 @@ class OneTimePasswordTest {
 
     @Test
     void anExpiredCodeIsNeverAccepted() {
-        var otp = issue("LOGIN");
+        var otp = issue(OtpPurpose.LOGIN);
         var afterExpiration = otp.getExpiresAt();
 
         assertThat(otp.isExpired(afterExpiration)).isTrue();
@@ -112,7 +110,7 @@ class OneTimePasswordTest {
 
     @Test
     void cannotBeMarkedAsUsedTwice() {
-        var otp = issue("LOGIN");
+        var otp = issue(OtpPurpose.LOGIN);
         otp.markAsUsed(Instant.now());
 
         assertThatThrownBy(() -> otp.markAsUsed(Instant.now()))
