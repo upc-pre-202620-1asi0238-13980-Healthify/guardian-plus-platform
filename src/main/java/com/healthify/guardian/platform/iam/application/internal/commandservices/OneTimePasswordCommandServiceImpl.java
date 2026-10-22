@@ -1,9 +1,11 @@
 package com.healthify.guardian.platform.iam.application.internal.commandservices;
 
+import com.healthify.guardian.platform.iam.application.commandservices.AuthenticationCommandService;
 import com.healthify.guardian.platform.iam.application.commandservices.OneTimePasswordCommandService;
 import com.healthify.guardian.platform.iam.application.outboundservices.EmailNotificationSender;
 import com.healthify.guardian.platform.iam.domain.model.aggregates.OneTimePassword;
 import com.healthify.guardian.platform.iam.domain.model.aggregates.UserAccount;
+import com.healthify.guardian.platform.iam.domain.model.commands.ResendLoginOtpCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.SendEmailVerificationRequestCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.TriggerTwoFactorCommand;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.OtpPurpose;
@@ -32,6 +34,8 @@ public class OneTimePasswordCommandServiceImpl implements OneTimePasswordCommand
     private static final String EMAIL_ALREADY_VERIFIED_KEY = "user-account.email.already-verified";
     private static final String EMAIL_NOT_VERIFIED_KEY = "user-account.email.not-verified";
     private static final String DELIVERY_FAILED_KEY = "iam.email.delivery-failed";
+    private static final String TOO_MANY_CODES_KEY = "otp.too-many-requests";
+    private static final String LOGIN_REQUIRED_KEY = "otp.login-required";
 
     private final UserAccountRepository userAccountRepository;
     private final OneTimePasswordRepository oneTimePasswordRepository;
@@ -40,6 +44,8 @@ public class OneTimePasswordCommandServiceImpl implements OneTimePasswordCommand
     private final EmailNotificationSender emailNotificationSender;
     private final int codeDigits;
     private final Duration codeLifetime;
+    private final int maxCodesPerWindow;
+    private final Duration rateLimitWindow;
 
     public OneTimePasswordCommandServiceImpl(UserAccountRepository userAccountRepository,
                                              OneTimePasswordRepository oneTimePasswordRepository,
@@ -47,7 +53,9 @@ public class OneTimePasswordCommandServiceImpl implements OneTimePasswordCommand
                                              SecretHasher secretHasher,
                                              EmailNotificationSender emailNotificationSender,
                                              @Value("${iam.otp.digits:6}") int codeDigits,
-                                             @Value("${iam.otp.ttl-minutes:10}") long codeLifetimeMinutes) {
+                                             @Value("${iam.otp.ttl-minutes:10}") long codeLifetimeMinutes,
+                                             @Value("${iam.otp.rate-limit.max-codes:5}") int maxCodesPerWindow,
+                                             @Value("${iam.otp.rate-limit.window-minutes:15}") long rateLimitWindowMinutes) {
         this.userAccountRepository = userAccountRepository;
         this.oneTimePasswordRepository = oneTimePasswordRepository;
         this.secretGenerator = secretGenerator;
@@ -55,6 +63,8 @@ public class OneTimePasswordCommandServiceImpl implements OneTimePasswordCommand
         this.emailNotificationSender = emailNotificationSender;
         this.codeDigits = codeDigits;
         this.codeLifetime = Duration.ofMinutes(codeLifetimeMinutes);
+        this.maxCodesPerWindow = maxCodesPerWindow;
+        this.rateLimitWindow = Duration.ofMinutes(rateLimitWindowMinutes);
     }
 
     @Override
@@ -77,7 +87,26 @@ public class OneTimePasswordCommandServiceImpl implements OneTimePasswordCommand
         });
     }
 
+    @Override
+    public Result<OneTimePassword, ApplicationError> handle(ResendLoginOtpCommand command) {
+        return findAccount(command.userAccountId()).flatMap(account -> {
+            // Only an account that passed the password step recently gets a new code, so this endpoint can
+            // neither start a login nor e-mail codes to anyone who just knows an account id
+            var challengedSince = Instant.now().minus(codeLifetime);
+            if (oneTimePasswordRepository.countIssuedSince(account.getId(), OtpPurpose.LOGIN, challengedSince) == 0) {
+                return Result.failure(new ApplicationError(AuthenticationCommandService.AUTHENTICATION_FAILED,
+                        message(LOGIN_REQUIRED_KEY)));
+            }
+            return handle(new TriggerTwoFactorCommand(command.userAccountId()));
+        });
+    }
+
     private Result<OneTimePassword, ApplicationError> issue(UserAccount account, OtpPurpose purpose) {
+        // Caps the e-mails per account and, since each code allows a few guesses, the guesses per window too
+        var windowStart = Instant.now().minus(rateLimitWindow);
+        if (oneTimePasswordRepository.countIssuedSince(account.getId(), purpose, windowStart) >= maxCodesPerWindow) {
+            return Result.failure(ApplicationError.businessRuleViolation("one-time-password", message(TOO_MANY_CODES_KEY)));
+        }
         var code = secretGenerator.generateNumericCode(codeDigits);
         var expiresAt = Instant.now().plus(codeLifetime);
         var otp = oneTimePasswordRepository.save(

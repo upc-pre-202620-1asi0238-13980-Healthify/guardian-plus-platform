@@ -1,6 +1,7 @@
 package com.healthify.guardian.platform.iam.application.commandservices;
 
 import com.healthify.guardian.platform.iam.domain.model.aggregates.OneTimePassword;
+import com.healthify.guardian.platform.iam.domain.model.commands.ResendLoginOtpCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.SendEmailVerificationRequestCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.TriggerTwoFactorCommand;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
@@ -20,4 +21,9 @@ public interface OneTimePasswordCommandService {
      * Sends the second-factor code (OTP) of a login.
      */
     Result<OneTimePassword, ApplicationError> handle(TriggerTwoFactorCommand command);
+
+    /**
+     * Sends a new login code to an account in the middle of a login (it passed the password step recently).
+     */
+    Result<OneTimePassword, ApplicationError> handle(ResendLoginOtpCommand command);
 }
