@@ -67,7 +67,9 @@ public class AuthenticationCommandServiceImpl implements AuthenticationCommandSe
                 return authenticationFailed(CREDENTIALS_INVALID_KEY);
             }
         } catch (IllegalStateException e) {
-            return Result.failure(ApplicationError.businessRuleViolation("login", message(e.getMessage())));
+            // Only reached with the right password, so revealing the account id is safe
+            return Result.failure(new ApplicationError(EMAIL_NOT_VERIFIED, message(e.getMessage()),
+                    account.get().getId().value().toString()));
         }
         // Saving publishes UserLoggedInEvent, whose policy sends the OTP
         return Result.success(userAccountRepository.save(account.get()));

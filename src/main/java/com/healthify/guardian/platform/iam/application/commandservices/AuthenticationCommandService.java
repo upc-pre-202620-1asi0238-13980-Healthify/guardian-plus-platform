@@ -17,6 +17,13 @@ public interface AuthenticationCommandService {
     String AUTHENTICATION_FAILED = "AUTHENTICATION_FAILED";
 
     /**
+     * Error code of a right password on an account whose e-mail is not verified yet; its details carry the user
+     * account id, so the app can continue with the e-mail verification. The interface layer maps it to
+     * {@code 403 Forbidden}.
+     */
+    String EMAIL_NOT_VERIFIED = "EMAIL_NOT_VERIFIED";
+
+    /**
      * Checks the e-mail and password. On success the account is logged in and the OTP is sent to its e-mail.
      */
     Result<UserAccount, ApplicationError> handle(LoginCommand command);
