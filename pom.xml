@@ -98,6 +98,21 @@
             <version>1.0.0</version>
         </dependency>
 
+        <!-- Security: filter chain, BCrypt, and JWT (RS256) issuing/validation via Nimbus -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Test de JPA -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
