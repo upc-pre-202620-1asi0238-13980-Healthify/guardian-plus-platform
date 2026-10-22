@@ -23,6 +23,10 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class WebSecurityConfiguration {
 
+    private static final String[] AUTHENTICATED_ENDPOINTS = {
+            "/api/v1/user-accounts/me"
+    };
+
     private static final String[] PUBLIC_ENDPOINTS = {
             "/api/v1/auth/**",
             "/api/v1/user-accounts/availability",
@@ -45,6 +49,8 @@ public class WebSecurityConfiguration {
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requests -> {
+                    // Who the caller is only makes sense with a token, enforcement or not
+                    requests.requestMatchers(AUTHENTICATED_ENDPOINTS).authenticated();
                     requests.requestMatchers(PUBLIC_ENDPOINTS).permitAll();
                     if (enforceAuthentication) {
                         requests.anyRequest().authenticated();
