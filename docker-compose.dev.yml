@@ -46,6 +46,7 @@ services:
       DATABASE_URL: postgres
       HEALTH_MONITORING_MQTT_BROKER_URL: ws://mosquitto:9001
       CARE_ROUTINES_WELLNESS_MQTT_BROKER_URL: ws://mosquitto:9001
+      MOBILITY_GEOFENCING_MQTT_BROKER_URL: ws://mosquitto:9001
     ports:
       - "8080:8080"
     depends_on:
