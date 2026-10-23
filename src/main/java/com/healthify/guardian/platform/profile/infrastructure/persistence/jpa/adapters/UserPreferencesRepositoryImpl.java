@@ -35,10 +35,25 @@ public class UserPreferencesRepositoryImpl
     @Override
     public UserPreferences save(UserPreferences preferences) {
 
+        var persistenceEntity =
+                userPreferencesPersistenceRepository
+                        .findById(
+                                preferences
+                                        .getUserId()
+                                        .value())
+                        .orElseGet(() ->
+                                UserPreferencesPersistenceAssembler
+                                        .toPersistenceFromDomain(
+                                                preferences));
+
+        UserPreferencesPersistenceAssembler
+                .updatePersistenceFromDomain(
+                        preferences,
+                        persistenceEntity);
+
         var savedEntity =
-                userPreferencesPersistenceRepository.save(
-                        UserPreferencesPersistenceAssembler
-                                .toPersistenceFromDomain(preferences));
+                userPreferencesPersistenceRepository
+                        .save(persistenceEntity);
 
         var saved =
                 UserPreferencesPersistenceAssembler
