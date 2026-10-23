@@ -34,6 +34,14 @@ public final class UserProfilePersistenceAssembler {
         if (profile == null) return null;
 
         var entity = new UserProfilePersistenceEntity();
+        updatePersistenceFromDomain(profile, entity);
+
+        return entity;
+    }
+
+    public static void updatePersistenceFromDomain(
+            UserProfile profile,
+            UserProfilePersistenceEntity entity) {
 
         entity.setId(profile.getId().value());
         entity.setUserId(profile.getUserId());
@@ -41,7 +49,5 @@ public final class UserProfilePersistenceAssembler {
         entity.setLastName(profile.getLastName());
         entity.setPhoneNumber(profile.getPhoneNumber());
         entity.setProfileImageUrl(profile.getProfileImageUrl());
-
-        return entity;
     }
 }
