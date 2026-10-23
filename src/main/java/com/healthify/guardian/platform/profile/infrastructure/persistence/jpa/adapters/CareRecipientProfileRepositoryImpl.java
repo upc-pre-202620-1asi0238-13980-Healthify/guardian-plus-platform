@@ -34,11 +34,26 @@ public class CareRecipientProfileRepositoryImpl
 
     @Override
     public CareRecipientProfile save(CareRecipientProfile profile) {
-        var savedEntity = careRecipientProfilePersistenceRepository.save(
-                CareRecipientProfilePersistenceAssembler.toPersistenceFromDomain(profile));
+
+        var persistenceEntity =
+                careRecipientProfilePersistenceRepository
+                        .findById(profile.getId().value())
+                        .orElseGet(() ->
+                                CareRecipientProfilePersistenceAssembler
+                                        .toPersistenceFromDomain(profile));
+
+        CareRecipientProfilePersistenceAssembler
+                .updatePersistenceFromDomain(
+                        profile,
+                        persistenceEntity);
+
+        var savedEntity =
+                careRecipientProfilePersistenceRepository
+                        .save(persistenceEntity);
 
         var saved =
-                CareRecipientProfilePersistenceAssembler.toDomainFromPersistence(savedEntity);
+                CareRecipientProfilePersistenceAssembler
+                        .toDomainFromPersistence(savedEntity);
 
         var events = List.copyOf(profile.domainEvents());
         profile.clearDomainEvents();

@@ -30,10 +30,20 @@ public class UserProfileRepositoryImpl implements UserProfileRepository {
 
     @Override
     public UserProfile save(UserProfile profile) {
-        var savedEntity = userProfilePersistenceRepository.save(
-                UserProfilePersistenceAssembler.toPersistenceFromDomain(profile));
+        var persistenceEntity = userProfilePersistenceRepository
+                .findById(profile.getId().value())
+                .orElseGet(() ->
+                        UserProfilePersistenceAssembler.toPersistenceFromDomain(profile));
 
-        var saved = UserProfilePersistenceAssembler.toDomainFromPersistence(savedEntity);
+        UserProfilePersistenceAssembler.updatePersistenceFromDomain(
+                profile,
+                persistenceEntity);
+
+        var savedEntity =
+                userProfilePersistenceRepository.save(persistenceEntity);
+
+        var saved =
+                UserProfilePersistenceAssembler.toDomainFromPersistence(savedEntity);
 
         var events = List.copyOf(profile.domainEvents());
         profile.clearDomainEvents();

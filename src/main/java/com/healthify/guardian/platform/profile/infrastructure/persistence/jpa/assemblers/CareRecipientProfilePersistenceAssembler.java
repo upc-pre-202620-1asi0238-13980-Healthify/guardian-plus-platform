@@ -39,13 +39,20 @@ public final class CareRecipientProfilePersistenceAssembler {
 
         var entity = new CareRecipientProfilePersistenceEntity();
 
+        updatePersistenceFromDomain(profile, entity);
+
+        return entity;
+    }
+
+    public static void updatePersistenceFromDomain(
+            CareRecipientProfile profile,
+            CareRecipientProfilePersistenceEntity entity) {
+
         entity.setId(profile.getId().value());
         entity.setCreatedByUserId(profile.getCreatedByUserId());
         entity.setFirstName(profile.getFirstName());
         entity.setLastName(profile.getLastName());
         entity.setBirthDate(profile.getBirthDate());
         entity.setProfileImageUrl(profile.getProfileImageUrl());
-
-        return entity;
     }
 }
