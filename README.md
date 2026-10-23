@@ -154,6 +154,8 @@ $env:SPRING_PROFILES_ACTIVE="prod"; .\mvnw.cmd spring-boot:run
 | `HEALTH_MONITORING_MQTT_TOPIC` | Telemetry topic filter | `guardian/vitals/+` |
 | `CARE_ROUTINES_WELLNESS_MQTT_ENABLED` | Subscribe to the activity (`guardian/activity/+`) and sleep (`guardian/sleep/+`) telemetry | `true` in `dev`, `false` otherwise |
 | `CARE_ROUTINES_WELLNESS_MQTT_BROKER_URL` | MQTT broker, over WebSocket (`ws://` or `wss://`) | `ws://localhost:9001` |
+| `MOBILITY_GEOFENCING_MQTT_ENABLED` | Subscribe to the location telemetry (`guardian/location/+`) | `true` in `dev`, `false` otherwise |
+| `MOBILITY_GEOFENCING_MQTT_BROKER_URL` | MQTT broker, over WebSocket (`ws://` or `wss://`) | `ws://localhost:9001` |
 
 In the `prod` profile, `DATABASE_URL`, `DATABASE_NAME`, `DATABASE_USER` and `DATABASE_PASSWORD` are required.
 
