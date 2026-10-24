@@ -49,6 +49,17 @@ public final class UserPreferencesPersistenceAssembler {
 
         var entity = new UserPreferencesPersistenceEntity();
 
+        updatePersistenceFromDomain(
+                preferences,
+                entity);
+
+        return entity;
+    }
+
+    public static void updatePersistenceFromDomain(
+            UserPreferences preferences,
+            UserPreferencesPersistenceEntity entity) {
+
         entity.setId(preferences.getUserId().value());
         entity.setLanguage(preferences.getLanguage());
         entity.setNotificationsEnabled(
@@ -58,7 +69,5 @@ public final class UserPreferencesPersistenceAssembler {
         entity.setReduceMotionEnabled(
                 preferences.isReduceMotionEnabled());
         entity.setFontScale(preferences.getFontScale());
-
-        return entity;
     }
 }
