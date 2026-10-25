@@ -156,6 +156,7 @@ $env:SPRING_PROFILES_ACTIVE="prod"; .\mvnw.cmd spring-boot:run
 | `CARE_ROUTINES_WELLNESS_MQTT_BROKER_URL` | MQTT broker, over WebSocket (`ws://` or `wss://`) | `ws://localhost:9001` |
 | `MOBILITY_GEOFENCING_MQTT_ENABLED` | Subscribe to the location telemetry (`guardian/location/+`) | `true` in `dev`, `false` otherwise |
 | `MOBILITY_GEOFENCING_MQTT_BROKER_URL` | MQTT broker, over WebSocket (`ws://` or `wss://`) | `ws://localhost:9001` |
+| `FIREBASE_SERVICE_ACCOUNT_BASE64` | Firebase service account JSON, Base64-encoded, to send push alerts through Firebase Cloud Messaging; push notifications are only logged while it is empty | empty |
 
 In the `prod` profile, `DATABASE_URL`, `DATABASE_NAME`, `DATABASE_USER` and `DATABASE_PASSWORD` are required.
 
