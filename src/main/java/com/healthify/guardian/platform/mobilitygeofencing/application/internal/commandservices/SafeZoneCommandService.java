@@ -37,7 +37,7 @@ public class SafeZoneCommandService {
                 .orElseThrow(() -> new IllegalArgumentException("Geocerca no encontrada."));
 
         SafeZoneBoundary updatedBoundary = new SafeZoneBoundary(command.center(), command.radiusInMeters());
-        safeZone.updateBoundary(updatedBoundary);
+        safeZone.updateBoundary(command.name(), updatedBoundary);
         safeZoneRepository.save(safeZone);
 
         eventPublisher.publishEvent(new SafeZoneUpdatedEvent(safeZone.getId()));
