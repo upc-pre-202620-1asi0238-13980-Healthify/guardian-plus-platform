@@ -35,7 +35,7 @@ public class SafeZone {
     }
 
     public void updateBoundary(String name, SafeZoneBoundary boundary) {
-        this.name = name,
+        this.name = name;
         this.boundary = boundary;
         this.updatedAt = Instant.now();
     }
