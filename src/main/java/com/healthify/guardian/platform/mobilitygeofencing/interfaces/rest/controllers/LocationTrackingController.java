@@ -5,6 +5,7 @@ import com.healthify.guardian.platform.mobilitygeofencing.domain.model.queries.G
 import com.healthify.guardian.platform.mobilitygeofencing.domain.model.valueobjects.FragileCitizenId;
 import com.healthify.guardian.platform.mobilitygeofencing.interfaces.rest.resources.CurrentLocationResource;
 import com.healthify.guardian.platform.mobilitygeofencing.interfaces.rest.resources.LocationHistoryResource;
+import com.healthify.guardian.platform.mobilitygeofencing.interfaces.rest.resources.LocationStatusResource;
 import com.healthify.guardian.platform.mobilitygeofencing.interfaces.rest.transform.LocationResourceAssembler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -69,15 +70,21 @@ public class LocationTrackingController {
             ),
             @ApiResponse(responseCode = "404", description = "Tracking record or citizen not found")
     })
-    public ResponseEntity<String> getCurrentStatus(
+    public ResponseEntity<LocationStatusResource> getCurrentStatus(
             @PathVariable
             @Parameter(description = "Fragile citizen unique identifier", required = true)
             UUID fragileCitizenId) {
         var fragileCitizen = new FragileCitizenId(fragileCitizenId);
+
         return locationTrackingQueryService.getCurrentTracking(fragileCitizen)
-                .map(tracking -> tracking.getCurrentStatus() != null ? tracking.getCurrentStatus().name() : "UNKNOWN")
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                .map(tracking -> {
+                    String status = (tracking.getCurrentStatus() != null) ? tracking.getCurrentStatus().name() : "UNKNOWN";
+                    return ResponseEntity.ok(new LocationStatusResource(fragileCitizenId.toString(), status));
+                })
+                .orElseGet(() -> ResponseEntity.ok(new LocationStatusResource(
+                        fragileCitizenId.toString(),
+                        "WITHIN_SAFE_ZONE" // Estado por defecto para evitar bloqueos visuales en el móvil
+                )));
     }
 
     @GetMapping("/{fragileCitizenId}/history")
