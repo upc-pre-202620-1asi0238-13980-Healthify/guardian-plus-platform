@@ -37,7 +37,7 @@ public class SafeZoneRepositoryImpl implements SafeZoneRepository {
 
     @Override
     public Optional<SafeZone> findActiveByFragileCitizenId(FragileCitizenId fragileCitizenId) {
-        return jpaRepository.findByFragileCitizenIdAndStatus(
+        return jpaRepository.findFirstByFragileCitizenIdAndStatusOrderByUpdatedAtDesc(
                 fragileCitizenId.value(),
                 SafeZoneStatus.ACTIVE.name()
         ).map(SafeZoneAssembler::toDomain);
@@ -45,7 +45,7 @@ public class SafeZoneRepositoryImpl implements SafeZoneRepository {
 
     @Override
     public List<SafeZone> findAllByFragileCitizenId(FragileCitizenId fragileCitizenId) {
-        return jpaRepository.findAllByFragileCitizenId(fragileCitizenId.value())
+        return jpaRepository.findAllByFragileCitizenIdOrderByCreatedAtAsc(fragileCitizenId.value())
                 .stream()
                 .map(SafeZoneAssembler::toDomain)
                 .toList();

@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface SafeZoneJpaRepository extends JpaRepository<SafeZoneJpaEntity, UUID> {
-    Optional<SafeZoneJpaEntity> findByFragileCitizenIdAndStatus(UUID fragileCitizenId, String status);
-    List<SafeZoneJpaEntity> findAllByFragileCitizenId(UUID fragileCitizenId);
+    // The most recently changed one, in case zones saved before the single active zone rule left two active
+    Optional<SafeZoneJpaEntity> findFirstByFragileCitizenIdAndStatusOrderByUpdatedAtDesc(UUID fragileCitizenId, String status);
+    List<SafeZoneJpaEntity> findAllByFragileCitizenIdOrderByCreatedAtAsc(UUID fragileCitizenId);
 }
