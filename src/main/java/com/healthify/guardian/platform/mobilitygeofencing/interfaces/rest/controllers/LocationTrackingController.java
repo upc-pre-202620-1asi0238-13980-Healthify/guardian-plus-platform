@@ -60,15 +60,14 @@ public class LocationTrackingController {
     @GetMapping("/{fragileCitizenId}/status")
     @Operation(
             summary = "Get current status of a fragile citizen",
-            description = "Retrieves the current mobility status (e.g., SAFE, OUT_OF_BOUNDS, UNKNOWN) based on the latest tracking information."
+            description = "Retrieves the current mobility status (WITHIN_SAFE_ZONE, OUTSIDE_SAFE_ZONE, or UNKNOWN while the wearable has not sent a location yet) based on the latest tracking information."
     )
     @ApiResponses(value = {
             @ApiResponse(
                     responseCode = "200",
                     description = "Current status retrieved successfully",
-                    content = @Content(schema = @Schema(implementation = String.class))
-            ),
-            @ApiResponse(responseCode = "404", description = "Tracking record or citizen not found")
+                    content = @Content(schema = @Schema(implementation = LocationStatusResource.class))
+            )
     })
     public ResponseEntity<LocationStatusResource> getCurrentStatus(
             @PathVariable
@@ -81,10 +80,8 @@ public class LocationTrackingController {
                     String status = (tracking.getCurrentStatus() != null) ? tracking.getCurrentStatus().name() : "UNKNOWN";
                     return ResponseEntity.ok(new LocationStatusResource(fragileCitizenId.toString(), status));
                 })
-                .orElseGet(() -> ResponseEntity.ok(new LocationStatusResource(
-                        fragileCitizenId.toString(),
-                        "WITHIN_SAFE_ZONE" // Estado por defecto para evitar bloqueos visuales en el móvil
-                )));
+                // Without any location nobody can say the person is safe: the app shows that it is still waiting
+                .orElseGet(() -> ResponseEntity.ok(new LocationStatusResource(fragileCitizenId.toString(), "UNKNOWN")));
     }
 
     @GetMapping("/{fragileCitizenId}/history")
