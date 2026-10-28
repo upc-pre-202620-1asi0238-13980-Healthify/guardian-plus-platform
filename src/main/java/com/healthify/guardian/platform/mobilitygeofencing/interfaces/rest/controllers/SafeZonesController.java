@@ -21,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -82,8 +83,7 @@ public class SafeZonesController {
                 new Coordinates(resource.centerLatitude(), resource.centerLongitude()),
                 resource.radiusInMeters()
         );
-        safeZoneCommandService.handle(command);
-        return ResponseEntity.ok().build();
+        return found(safeZoneCommandService.handle(command), ResponseEntity.ok().build());
     }
 
     @PatchMapping("/{safeZoneId}/activate")
@@ -98,8 +98,7 @@ public class SafeZonesController {
     public ResponseEntity<Void> activateSafeZone(
             @PathVariable @Parameter(description = "Safe zone unique identifier", required = true) UUID safeZoneId) {
         ActivateSafeZoneCommand command = new ActivateSafeZoneCommand(safeZoneId);
-        safeZoneCommandService.handle(command);
-        return ResponseEntity.ok().build();
+        return found(safeZoneCommandService.handle(command), ResponseEntity.ok().build());
     }
 
 
@@ -116,8 +115,24 @@ public class SafeZonesController {
             @PathVariable @Parameter(description = "Safe zone unique identifier", required = true)
             UUID safeZoneId) {
         DeactivateSafeZoneCommand command = new DeactivateSafeZoneCommand(safeZoneId);
-        safeZoneCommandService.handle(command);
-        return ResponseEntity.ok().build();
+        return found(safeZoneCommandService.handle(command), ResponseEntity.ok().build());
+    }
+
+    @GetMapping("/fragile-citizen/{fragileCitizenId}")
+    @Operation(
+            summary = "Get the safe zones of a fragile citizen",
+            description = "Retrieves every safe zone configured for the specified fragile citizen, active or not, oldest first. At most one of them is active."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Safe zones retrieved successfully; empty when none is configured")
+    })
+    public ResponseEntity<List<SafeZoneResource>> getSafeZones(
+            @PathVariable @Parameter(description = "Fragile citizen unique identifier", required = true)
+            UUID fragileCitizenId) {
+        var safeZones = safeZoneCommandService.getAllByFragileCitizenId(new FragileCitizenId(fragileCitizenId)).stream()
+                .map(SafeZoneResourceAssembler::toResource)
+                .toList();
+        return ResponseEntity.ok(safeZones);
     }
 
     @GetMapping("/fragile-citizen/{fragileCitizenId}/active")
@@ -154,7 +169,10 @@ public class SafeZonesController {
             @PathVariable @Parameter(description = "Safe zone unique identifier", required = true)
             UUID safeZoneId) {
         DeleteSafeZoneCommand command = new DeleteSafeZoneCommand(safeZoneId);
-        safeZoneCommandService.handle(command);
-        return ResponseEntity.noContent().build();
+        return found(safeZoneCommandService.handle(command), ResponseEntity.noContent().build());
+    }
+
+    private static ResponseEntity<Void> found(boolean found, ResponseEntity<Void> response) {
+        return found ? response : ResponseEntity.notFound().build();
     }
 }
