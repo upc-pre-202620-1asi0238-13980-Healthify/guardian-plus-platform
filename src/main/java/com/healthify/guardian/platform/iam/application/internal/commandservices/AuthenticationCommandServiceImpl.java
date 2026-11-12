@@ -1,18 +1,24 @@
 package com.healthify.guardian.platform.iam.application.internal.commandservices;
 
+import com.healthify.guardian.platform.iam.application.commandservices.AuthenticatedSession;
 import com.healthify.guardian.platform.iam.application.commandservices.AuthenticationCommandService;
+import com.healthify.guardian.platform.iam.application.outboundservices.GoogleIdTokenVerifier;
 import com.healthify.guardian.platform.iam.application.outboundservices.SessionToken;
 import com.healthify.guardian.platform.iam.application.outboundservices.SessionTokenService;
 import com.healthify.guardian.platform.iam.domain.model.aggregates.UserAccount;
 import com.healthify.guardian.platform.iam.domain.model.commands.AuthenticateUserCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.LoginCommand;
+import com.healthify.guardian.platform.iam.domain.model.commands.SignInWithGoogleCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.VerifyOtpCommand;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.Email;
+import com.healthify.guardian.platform.iam.domain.model.valueobjects.GoogleSubject;
+import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedPassword;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.OtpPurpose;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.UserAccountId;
 import com.healthify.guardian.platform.iam.domain.repositories.OneTimePasswordRepository;
 import com.healthify.guardian.platform.iam.domain.repositories.UserAccountRepository;
 import com.healthify.guardian.platform.iam.domain.services.PasswordHasher;
+import com.healthify.guardian.platform.iam.domain.services.SecretGenerator;
 import com.healthify.guardian.platform.iam.domain.services.SecretHasher;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.application.result.Result;
@@ -30,29 +36,39 @@ import java.util.Optional;
  * <p>The step from "User Logged in" to "Trigger 2FA" runs as a policy ({@code UserLoggedInEventHandler}). The step
  * from "OTP correct?" to "Authenticate User" runs here, because the session token it produces is the response of
  * the OTP request.</p>
+ *
+ * <p>The Google sign-in skips both steps: a valid Google ID token proves the e-mail, so it goes straight to
+ * "Authenticate User", creating the account the first time.</p>
  */
 @Service
 public class AuthenticationCommandServiceImpl implements AuthenticationCommandService {
 
     private static final String CREDENTIALS_INVALID_KEY = "user-account.credentials.invalid";
     private static final String OTP_INVALID_KEY = "otp.code.invalid";
+    private static final String GOOGLE_TOKEN_INVALID_KEY = "user-account.google-token.invalid";
 
     private final UserAccountRepository userAccountRepository;
     private final OneTimePasswordRepository oneTimePasswordRepository;
     private final PasswordHasher passwordHasher;
     private final SecretHasher secretHasher;
     private final SessionTokenService sessionTokenService;
+    private final GoogleIdTokenVerifier googleIdTokenVerifier;
+    private final SecretGenerator secretGenerator;
 
     public AuthenticationCommandServiceImpl(UserAccountRepository userAccountRepository,
                                             OneTimePasswordRepository oneTimePasswordRepository,
                                             PasswordHasher passwordHasher,
                                             SecretHasher secretHasher,
-                                            SessionTokenService sessionTokenService) {
+                                            SessionTokenService sessionTokenService,
+                                            GoogleIdTokenVerifier googleIdTokenVerifier,
+                                            SecretGenerator secretGenerator) {
         this.userAccountRepository = userAccountRepository;
         this.oneTimePasswordRepository = oneTimePasswordRepository;
         this.passwordHasher = passwordHasher;
         this.secretHasher = secretHasher;
         this.sessionTokenService = sessionTokenService;
+        this.googleIdTokenVerifier = googleIdTokenVerifier;
+        this.secretGenerator = secretGenerator;
     }
 
     @Override
@@ -111,6 +127,38 @@ public class AuthenticationCommandServiceImpl implements AuthenticationCommandSe
         }
         var authenticated = userAccountRepository.save(account.get());
         return Result.success(sessionTokenService.issue(authenticated));
+    }
+
+    @Override
+    public Result<AuthenticatedSession, ApplicationError> handle(SignInWithGoogleCommand command) {
+        var identity = googleIdTokenVerifier.verify(command.idToken());
+        var email = identity.flatMap(google -> parseEmail(google.email()));
+        if (email.isEmpty()) {
+            return authenticationFailed(GOOGLE_TOKEN_INVALID_KEY);
+        }
+        UserAccount account;
+        try {
+            var subject = new GoogleSubject(identity.get().subject());
+            // The subject finds an account linked before; the e-mail, one registered with a password
+            var existing = userAccountRepository.findByGoogleSubject(subject)
+                    .or(() -> userAccountRepository.findByEmail(email.get()));
+            if (existing.isPresent()) {
+                account = existing.get();
+                account.linkGoogleAccount(subject, this::unusablePasswordHash);
+            } else {
+                account = new UserAccount(subject, email.get(), unusablePasswordHash());
+            }
+            account.authenticate();
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return authenticationFailed(e.getMessage());
+        }
+        var authenticated = userAccountRepository.save(account);
+        return Result.success(new AuthenticatedSession(authenticated.getId().value(), sessionTokenService.issue(authenticated)));
+    }
+
+    // Hash of a random password nobody knows: the account has no usable password until the user resets it
+    private HashedPassword unusablePasswordHash() {
+        return passwordHasher.hash(secretGenerator.generateOpaqueToken());
     }
 
     private static Optional<Email> parseEmail(String email) {

@@ -1,20 +1,28 @@
 package com.healthify.guardian.platform.iam.application.internal.commandservices;
 
 import com.healthify.guardian.platform.iam.application.commandservices.AuthenticationCommandService;
+import com.healthify.guardian.platform.iam.application.outboundservices.GoogleIdTokenVerifier;
+import com.healthify.guardian.platform.iam.application.outboundservices.GoogleIdentity;
 import com.healthify.guardian.platform.iam.application.outboundservices.SessionToken;
 import com.healthify.guardian.platform.iam.application.outboundservices.SessionTokenService;
 import com.healthify.guardian.platform.iam.domain.model.aggregates.OneTimePassword;
 import com.healthify.guardian.platform.iam.domain.model.aggregates.UserAccount;
 import com.healthify.guardian.platform.iam.domain.model.commands.LoginCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.RegisterUserCredentialsCommand;
+import com.healthify.guardian.platform.iam.domain.model.commands.SignInWithGoogleCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.VerifyOtpCommand;
+import com.healthify.guardian.platform.iam.domain.model.events.EmailVerifiedEvent;
+import com.healthify.guardian.platform.iam.domain.model.events.UserAuthenticatedEvent;
 import com.healthify.guardian.platform.iam.domain.model.events.UserLoggedInEvent;
+import com.healthify.guardian.platform.iam.domain.model.events.UserSignedUpWithGoogleEvent;
+import com.healthify.guardian.platform.iam.domain.model.valueobjects.GoogleSubject;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedPassword;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedSecret;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.OtpPurpose;
 import com.healthify.guardian.platform.iam.domain.repositories.OneTimePasswordRepository;
 import com.healthify.guardian.platform.iam.domain.repositories.UserAccountRepository;
 import com.healthify.guardian.platform.iam.domain.services.PasswordHasher;
+import com.healthify.guardian.platform.iam.domain.services.SecretGenerator;
 import com.healthify.guardian.platform.iam.domain.services.SecretHasher;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.application.result.Result;
@@ -44,6 +52,8 @@ class AuthenticationCommandServiceImplTest {
     @Mock PasswordHasher passwordHasher;
     @Mock SecretHasher secretHasher;
     @Mock SessionTokenService sessionTokenService;
+    @Mock GoogleIdTokenVerifier googleIdTokenVerifier;
+    @Mock SecretGenerator secretGenerator;
     @InjectMocks AuthenticationCommandServiceImpl service;
 
     private static UserAccount account(boolean verified) {
@@ -150,5 +160,73 @@ class AuthenticationCommandServiceImplTest {
         var result = service.handle(new VerifyOtpCommand(account.getId().value(), "048213"));
 
         assertThat(errorCode(result)).isEqualTo(AuthenticationCommandService.AUTHENTICATION_FAILED);
+    }
+
+    @Test
+    void theFirstGoogleSignInCreatesAnActiveAccount() {
+        when(googleIdTokenVerifier.verify("id-token")).thenReturn(Optional.of(new GoogleIdentity("google-1", "Ana@Guardian.pe")));
+        when(userAccountRepository.findByGoogleSubject(new GoogleSubject("google-1"))).thenReturn(Optional.empty());
+        when(userAccountRepository.findByEmail(any())).thenReturn(Optional.empty());
+        when(secretGenerator.generateOpaqueToken()).thenReturn("random");
+        when(passwordHasher.hash("random")).thenReturn(new HashedPassword("random-hash"));
+        var saved = ArgumentCaptor.forClass(UserAccount.class);
+        when(userAccountRepository.save(saved.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+        var token = new SessionToken("jwt", Instant.now().plus(Duration.ofHours(8)));
+        when(sessionTokenService.issue(any())).thenReturn(token);
+
+        var result = service.handle(new SignInWithGoogleCommand("id-token"));
+
+        assertThat(result.isSuccess()).isTrue();
+        var account = saved.getValue();
+        assertThat(account.getEmail().value()).isEqualTo("ana@guardian.pe");
+        assertThat(account.canAuthenticate()).isTrue();
+        assertThat(account.domainEvents()).hasExactlyElementsOfTypes(
+                UserSignedUpWithGoogleEvent.class, EmailVerifiedEvent.class, UserAuthenticatedEvent.class);
+        var session = ((Result.Success<?, ?>) result).value();
+        assertThat(session).extracting("userAccountId", "token").containsExactly(account.getId().value(), token);
+    }
+
+    @Test
+    void aGoogleSignInLinksTheAccountRegisteredWithThatEmail() {
+        var account = account(true);
+        when(googleIdTokenVerifier.verify("id-token")).thenReturn(Optional.of(new GoogleIdentity("google-1", "ana@guardian.pe")));
+        when(userAccountRepository.findByGoogleSubject(new GoogleSubject("google-1"))).thenReturn(Optional.empty());
+        when(userAccountRepository.findByEmail(account.getEmail())).thenReturn(Optional.of(account));
+        var saved = ArgumentCaptor.forClass(UserAccount.class);
+        when(userAccountRepository.save(saved.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(sessionTokenService.issue(any())).thenReturn(new SessionToken("jwt", Instant.now()));
+
+        var result = service.handle(new SignInWithGoogleCommand("id-token"));
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(saved.getValue().getId()).isEqualTo(account.getId());
+        assertThat(saved.getValue().getGoogleSubject()).isEqualTo(new GoogleSubject("google-1"));
+        // A verified account keeps its password, so no random one is generated
+        verify(secretGenerator, never()).generateOpaqueToken();
+    }
+
+    @Test
+    void anInvalidGoogleTokenFailsAuthentication() {
+        when(googleIdTokenVerifier.verify("bad-token")).thenReturn(Optional.empty());
+
+        var result = service.handle(new SignInWithGoogleCommand("bad-token"));
+
+        assertThat(errorCode(result)).isEqualTo(AuthenticationCommandService.AUTHENTICATION_FAILED);
+        verify(userAccountRepository, never()).save(any());
+        verify(sessionTokenService, never()).issue(any());
+    }
+
+    @Test
+    void anEmailLinkedToAnotherGoogleAccountFailsAuthentication() {
+        var account = account(true);
+        account.linkGoogleAccount(new GoogleSubject("google-1"), () -> new HashedPassword("random"));
+        when(googleIdTokenVerifier.verify("id-token")).thenReturn(Optional.of(new GoogleIdentity("google-2", "ana@guardian.pe")));
+        when(userAccountRepository.findByGoogleSubject(new GoogleSubject("google-2"))).thenReturn(Optional.empty());
+        when(userAccountRepository.findByEmail(account.getEmail())).thenReturn(Optional.of(account));
+
+        var result = service.handle(new SignInWithGoogleCommand("id-token"));
+
+        assertThat(errorCode(result)).isEqualTo(AuthenticationCommandService.AUTHENTICATION_FAILED);
+        verify(userAccountRepository, never()).save(any());
     }
 }

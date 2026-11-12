@@ -2,6 +2,7 @@ package com.healthify.guardian.platform.iam.domain.repositories;
 
 import com.healthify.guardian.platform.iam.domain.model.aggregates.UserAccount;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.Email;
+import com.healthify.guardian.platform.iam.domain.model.valueobjects.GoogleSubject;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedSecret;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.UserAccountId;
 
@@ -28,4 +29,9 @@ public interface UserAccountRepository {
      * {@code SecretHasher} (same token, same hash), unlike salted password hashing.
      */
     Optional<UserAccount> findByPasswordResetTokenHash(HashedSecret tokenHash);
+
+    /**
+     * Retrieves the account linked to the given Google account.
+     */
+    Optional<UserAccount> findByGoogleSubject(GoogleSubject googleSubject);
 }

@@ -7,6 +7,9 @@ import com.healthify.guardian.platform.iam.domain.model.events.PasswordResetToke
 import com.healthify.guardian.platform.iam.domain.model.events.UserAuthenticatedEvent;
 import com.healthify.guardian.platform.iam.domain.model.events.UserCredentialsRegisteredEvent;
 import com.healthify.guardian.platform.iam.domain.model.events.UserLoggedInEvent;
+import com.healthify.guardian.platform.iam.domain.model.events.UserSignedUpWithGoogleEvent;
+import com.healthify.guardian.platform.iam.domain.model.valueobjects.Email;
+import com.healthify.guardian.platform.iam.domain.model.valueobjects.GoogleSubject;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedPassword;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedSecret;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.UserAccountStatus;
@@ -167,5 +170,61 @@ class UserAccountTest {
         assertThatThrownBy(() -> account.generatePasswordResetToken(new HashedSecret("token-hash"), Instant.now()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("password-reset-token.expires-at.invalid");
+    }
+
+    @Test
+    void aGoogleSignUpStartsActiveWithItsEmailVerified() {
+        var account = new UserAccount(new GoogleSubject("google-1"), new Email("ana@guardian.pe"), new HashedPassword("random"));
+
+        assertThat(account.getStatus()).isEqualTo(UserAccountStatus.ACTIVE);
+        assertThat(account.isEmailVerified()).isTrue();
+        assertThat(account.getGoogleSubject()).isEqualTo(new GoogleSubject("google-1"));
+        assertThat(account.domainEvents()).hasSize(2)
+                .hasExactlyElementsOfTypes(UserSignedUpWithGoogleEvent.class, EmailVerifiedEvent.class);
+    }
+
+    @Test
+    void linkingGoogleKeepsThePasswordOfAVerifiedAccount() {
+        var account = verified();
+        var password = account.getPasswordHash();
+
+        account.linkGoogleAccount(new GoogleSubject("google-1"), () -> new HashedPassword("random"));
+
+        assertThat(account.getGoogleSubject()).isEqualTo(new GoogleSubject("google-1"));
+        assertThat(account.getPasswordHash()).isEqualTo(password);
+        assertThat(account.domainEvents()).isEmpty();
+    }
+
+    @Test
+    void linkingGoogleVerifiesAPendingAccountAndDropsItsPassword() {
+        var account = register();
+        account.clearDomainEvents();
+
+        account.linkGoogleAccount(new GoogleSubject("google-1"), () -> new HashedPassword("random"));
+
+        assertThat(account.getStatus()).isEqualTo(UserAccountStatus.ACTIVE);
+        assertThat(account.getPasswordHash()).isEqualTo(new HashedPassword("random"));
+        assertThat(account.logIn("secret-123", HASHER)).isFalse();
+        assertThat(account.domainEvents()).singleElement().isInstanceOf(EmailVerifiedEvent.class);
+    }
+
+    @Test
+    void linkingTheSameGoogleAccountAgainChangesNothing() {
+        var account = verified();
+        account.linkGoogleAccount(new GoogleSubject("google-1"), () -> new HashedPassword("random"));
+
+        account.linkGoogleAccount(new GoogleSubject("google-1"), () -> new HashedPassword("random"));
+
+        assertThat(account.getGoogleSubject()).isEqualTo(new GoogleSubject("google-1"));
+    }
+
+    @Test
+    void anAccountCannotBeLinkedToASecondGoogleAccount() {
+        var account = verified();
+        account.linkGoogleAccount(new GoogleSubject("google-1"), () -> new HashedPassword("random"));
+
+        assertThatThrownBy(() -> account.linkGoogleAccount(new GoogleSubject("google-2"), () -> new HashedPassword("random")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("user-account.google.already-linked");
     }
 }

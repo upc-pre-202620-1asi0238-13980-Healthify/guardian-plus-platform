@@ -37,4 +37,7 @@ public class UserAccountPersistenceEntity extends AuditableAbstractPersistenceEn
 
     @Column(name = "password_reset_token_expires_at")
     private Instant passwordResetTokenExpiresAt;
+
+    @Column(name = "google_subject", unique = true, length = 255)
+    private String googleSubject;
 }
