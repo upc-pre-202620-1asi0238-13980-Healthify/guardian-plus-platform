@@ -2,6 +2,7 @@ package com.healthify.guardian.platform.healthmonitoring.application.commandserv
 
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.WearableDevice;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.LinkWearableDeviceCommand;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.UnlinkWearableDeviceCommand;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.application.result.Result;
 
@@ -14,4 +15,9 @@ public interface WearableDeviceCommandService {
      * Links a wearable device to a care recipient. A serial number can only be linked once.
      */
     Result<WearableDevice, ApplicationError> handle(LinkWearableDeviceCommand command);
+
+    /**
+     * Unlinks a wearable device from its care recipient and returns the device as it was linked.
+     */
+    Result<WearableDevice, ApplicationError> handle(UnlinkWearableDeviceCommand command);
 }
