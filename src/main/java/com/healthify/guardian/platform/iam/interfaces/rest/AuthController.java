@@ -11,6 +11,7 @@ import com.healthify.guardian.platform.iam.interfaces.rest.resources.RequestPass
 import com.healthify.guardian.platform.iam.interfaces.rest.resources.ResendLoginOtpResource;
 import com.healthify.guardian.platform.iam.interfaces.rest.resources.ResetPasswordResource;
 import com.healthify.guardian.platform.iam.interfaces.rest.resources.SendEmailVerificationRequestResource;
+import com.healthify.guardian.platform.iam.interfaces.rest.resources.SignInWithGoogleResource;
 import com.healthify.guardian.platform.iam.interfaces.rest.resources.UserAccountResource;
 import com.healthify.guardian.platform.iam.interfaces.rest.resources.VerifyEmailResource;
 import com.healthify.guardian.platform.iam.interfaces.rest.resources.VerifyOtpResource;
@@ -21,6 +22,7 @@ import com.healthify.guardian.platform.iam.interfaces.rest.transform.RequestPass
 import com.healthify.guardian.platform.iam.interfaces.rest.transform.ResendLoginOtpCommandFromResourceAssembler;
 import com.healthify.guardian.platform.iam.interfaces.rest.transform.ResetPasswordCommandFromResourceAssembler;
 import com.healthify.guardian.platform.iam.interfaces.rest.transform.SendEmailVerificationRequestCommandFromResourceAssembler;
+import com.healthify.guardian.platform.iam.interfaces.rest.transform.SignInWithGoogleCommandFromResourceAssembler;
 import com.healthify.guardian.platform.iam.interfaces.rest.transform.UserAccountResourceFromEntityAssembler;
 import com.healthify.guardian.platform.iam.interfaces.rest.transform.VerifyEmailCommandFromResourceAssembler;
 import com.healthify.guardian.platform.iam.interfaces.rest.transform.VerifyOtpCommandFromResourceAssembler;
@@ -51,12 +53,13 @@ import java.util.function.Function;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
- * REST controller for registration, e-mail verification, the two-step login (password, then OTP) and password reset.
+ * REST controller for registration, e-mail verification, the two-step login (password, then OTP), the Google
+ * sign-in and password reset.
  * All its endpoints are public: they are how a user gets a session token in the first place.
  */
 @RestController
 @RequestMapping(value = "/api/v1/auth", produces = APPLICATION_JSON_VALUE)
-@Tag(name = "Authentication", description = "Registration, login with OTP and password reset endpoints")
+@Tag(name = "Authentication", description = "Registration, login with OTP, Google sign-in and password reset endpoints")
 @SecurityRequirements
 public class AuthController {
 
@@ -147,6 +150,25 @@ public class AuthController {
         var result = authenticationCommandService.handle(VerifyOtpCommandFromResourceAssembler.toCommandFromResource(resource));
         return toResponseEntity(result,
                 token -> AuthenticatedSessionResourceFromTokenAssembler.toResourceFromToken(resource.userAccountId(), token),
+                HttpStatus.OK);
+    }
+
+    @PostMapping("/google")
+    @Operation(summary = "Sign in with Google",
+            description = "Checks the Google ID token the app got for the platform's Web client and returns the session token. "
+                    + "The first time it creates the account, or links the one registered with the same e-mail. No OTP is sent.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User authenticated",
+                    content = @Content(schema = @Schema(implementation = AuthenticatedSessionResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "401", description = "Invalid or expired Google token, or the e-mail is linked to another Google account",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class)))
+    })
+    public ResponseEntity<?> signInWithGoogle(@Valid @RequestBody SignInWithGoogleResource resource) {
+        var result = authenticationCommandService.handle(
+                SignInWithGoogleCommandFromResourceAssembler.toCommandFromResource(resource));
+        return toResponseEntity(result,
+                session -> AuthenticatedSessionResourceFromTokenAssembler.toResourceFromToken(session.userAccountId(), session.token()),
                 HttpStatus.OK);
     }
 
