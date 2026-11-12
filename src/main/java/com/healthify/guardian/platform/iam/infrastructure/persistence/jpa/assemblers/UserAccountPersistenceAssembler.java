@@ -2,6 +2,7 @@ package com.healthify.guardian.platform.iam.infrastructure.persistence.jpa.assem
 
 import com.healthify.guardian.platform.iam.domain.model.aggregates.UserAccount;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.Email;
+import com.healthify.guardian.platform.iam.domain.model.valueobjects.GoogleSubject;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedPassword;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedSecret;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.UserAccountId;
@@ -29,6 +30,7 @@ public final class UserAccountPersistenceAssembler {
         account.setPasswordResetTokenHash(entity.getPasswordResetTokenHash() == null
                 ? null : new HashedSecret(entity.getPasswordResetTokenHash()));
         account.setPasswordResetTokenExpiresAt(entity.getPasswordResetTokenExpiresAt());
+        account.setGoogleSubject(entity.getGoogleSubject() == null ? null : new GoogleSubject(entity.getGoogleSubject()));
         account.setCreatedAt(toInstant(entity.getCreatedAt()));
         account.setUpdatedAt(toInstant(entity.getUpdatedAt()));
         return account;
@@ -45,6 +47,7 @@ public final class UserAccountPersistenceAssembler {
         entity.setPasswordResetTokenHash(account.getPasswordResetTokenHash() == null
                 ? null : account.getPasswordResetTokenHash().hash());
         entity.setPasswordResetTokenExpiresAt(account.getPasswordResetTokenExpiresAt());
+        entity.setGoogleSubject(account.getGoogleSubject() == null ? null : account.getGoogleSubject().value());
         return entity;
     }
 

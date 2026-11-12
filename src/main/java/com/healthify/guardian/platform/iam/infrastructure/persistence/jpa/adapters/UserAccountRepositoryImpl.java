@@ -2,6 +2,7 @@ package com.healthify.guardian.platform.iam.infrastructure.persistence.jpa.adapt
 
 import com.healthify.guardian.platform.iam.domain.model.aggregates.UserAccount;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.Email;
+import com.healthify.guardian.platform.iam.domain.model.valueobjects.GoogleSubject;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedSecret;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.UserAccountId;
 import com.healthify.guardian.platform.iam.domain.repositories.UserAccountRepository;
@@ -53,6 +54,12 @@ public class UserAccountRepositoryImpl implements UserAccountRepository {
     @Override
     public Optional<UserAccount> findByPasswordResetTokenHash(HashedSecret tokenHash) {
         return persistenceRepository.findByPasswordResetTokenHash(tokenHash.hash())
+                .map(UserAccountPersistenceAssembler::toDomainFromPersistence);
+    }
+
+    @Override
+    public Optional<UserAccount> findByGoogleSubject(GoogleSubject googleSubject) {
+        return persistenceRepository.findByGoogleSubject(googleSubject.value())
                 .map(UserAccountPersistenceAssembler::toDomainFromPersistence);
     }
 }
