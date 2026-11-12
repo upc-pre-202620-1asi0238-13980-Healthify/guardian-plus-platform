@@ -2,9 +2,11 @@ package com.healthify.guardian.platform.healthmonitoring.interfaces.rest;
 
 import com.healthify.guardian.platform.healthmonitoring.application.commandservices.WearableDeviceCommandService;
 import com.healthify.guardian.platform.healthmonitoring.application.queryservices.WearableDeviceQueryService;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.UnlinkWearableDeviceCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetAllWearableDevicesQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.queries.GetWearableDevicesByCareRecipientProfileIdQuery;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.CareRecipientProfileId;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.WearableDeviceId;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources.LinkWearableDeviceResource;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.resources.WearableDeviceResource;
 import com.healthify.guardian.platform.healthmonitoring.interfaces.rest.transform.LinkWearableDeviceCommandFromResourceAssembler;
@@ -22,6 +24,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -92,5 +95,22 @@ public class WearableDevicesController {
         return ResponseEntity.ok(wearableDeviceQueryService.handle(query).stream()
                 .map(WearableDeviceResourceFromEntityAssembler::toResourceFromEntity)
                 .toList());
+    }
+
+    @DeleteMapping("/{wearableDeviceId}")
+    @Operation(summary = "Unlink a wearable device",
+            description = "Unlinks a wearable device from its care recipient, so its readings are no longer accepted. "
+                    + "The readings it already sent stay in the history and its serial number can be linked again.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Device unlinked",
+                    content = @Content(schema = @Schema(implementation = WearableDeviceResource.class))),
+            @ApiResponse(responseCode = "404", description = "Wearable device not found", content = @Content(schema = @Schema(implementation = ErrorResource.class)))
+    })
+    public ResponseEntity<?> unlinkWearableDevice(
+            @PathVariable @Parameter(description = "Wearable device unique identifier", required = true)
+            UUID wearableDeviceId) {
+        var result = wearableDeviceCommandService.handle(new UnlinkWearableDeviceCommand(new WearableDeviceId(wearableDeviceId)));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result, WearableDeviceResourceFromEntityAssembler::toResourceFromEntity, HttpStatus.OK);
     }
 }
