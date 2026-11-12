@@ -4,12 +4,14 @@ import com.healthify.guardian.platform.iam.application.outboundservices.SessionT
 import com.healthify.guardian.platform.iam.domain.model.aggregates.UserAccount;
 import com.healthify.guardian.platform.iam.domain.model.commands.AuthenticateUserCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.LoginCommand;
+import com.healthify.guardian.platform.iam.domain.model.commands.SignInWithGoogleCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.VerifyOtpCommand;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.application.result.Result;
 
 /**
- * Application service contract for the two-step login: password first, then the OTP sent by e-mail.
+ * Application service contract for the two-step login (password first, then the OTP sent by e-mail) and the
+ * one-step Google sign-in.
  */
 public interface AuthenticationCommandService {
 
@@ -37,4 +39,10 @@ public interface AuthenticationCommandService {
      * Authenticates the user and issues the signed session token.
      */
     Result<SessionToken, ApplicationError> handle(AuthenticateUserCommand command);
+
+    /**
+     * Checks a Google ID token and authenticates the account of its e-mail, creating or linking it the first time.
+     * No OTP is sent: Google already checked who the user is.
+     */
+    Result<AuthenticatedSession, ApplicationError> handle(SignInWithGoogleCommand command);
 }
