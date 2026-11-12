@@ -1,5 +1,6 @@
 package com.healthify.guardian.platform.iam.interfaces.rest;
 
+import com.healthify.guardian.platform.iam.application.commandservices.AuthenticatedSession;
 import com.healthify.guardian.platform.iam.application.commandservices.AuthenticationCommandService;
 import com.healthify.guardian.platform.iam.application.commandservices.OneTimePasswordCommandService;
 import com.healthify.guardian.platform.iam.application.commandservices.UserAccountCommandService;
@@ -7,6 +8,7 @@ import com.healthify.guardian.platform.iam.application.outboundservices.SessionT
 import com.healthify.guardian.platform.iam.domain.model.aggregates.UserAccount;
 import com.healthify.guardian.platform.iam.domain.model.commands.LoginCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.RegisterUserCredentialsCommand;
+import com.healthify.guardian.platform.iam.domain.model.commands.SignInWithGoogleCommand;
 import com.healthify.guardian.platform.iam.domain.model.commands.VerifyOtpCommand;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedPassword;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
@@ -122,5 +124,36 @@ class AuthControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(AuthenticationCommandService.EMAIL_NOT_VERIFIED))
                 .andExpect(jsonPath("$.details").value(userAccountId));
+    }
+
+    @Test
+    void aGoogleSignInReturnsTheSession() throws Exception {
+        var userAccountId = UUID.randomUUID();
+        when(authenticationCommandService.handle(any(SignInWithGoogleCommand.class))).thenReturn(Result.success(
+                new AuthenticatedSession(userAccountId, new SessionToken("jwt", Instant.parse("2026-11-11T20:00:00Z")))));
+
+        mockMvc.perform(post("/api/v1/auth/google").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idToken\":\"id-token\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userAccountId").value(userAccountId.toString()))
+                .andExpect(jsonPath("$.accessToken").value("jwt"))
+                .andExpect(jsonPath("$.tokenType").value("Bearer"));
+    }
+
+    @Test
+    void anInvalidGoogleTokenIsUnauthorized() throws Exception {
+        when(authenticationCommandService.handle(any(SignInWithGoogleCommand.class))).thenReturn(Result.failure(
+                new ApplicationError(AuthenticationCommandService.AUTHENTICATION_FAILED, "The Google sign-in is invalid or has expired")));
+
+        mockMvc.perform(post("/api/v1/auth/google").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idToken\":\"bad-token\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(AuthenticationCommandService.AUTHENTICATION_FAILED));
+    }
+
+    @Test
+    void aGoogleSignInNeedsTheIdToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/google").contentType(MediaType.APPLICATION_JSON).content("{\"idToken\":\" \"}"))
+                .andExpect(status().isBadRequest());
     }
 }
