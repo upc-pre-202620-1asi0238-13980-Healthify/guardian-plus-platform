@@ -7,7 +7,9 @@ import com.healthify.guardian.platform.iam.domain.model.events.PasswordResetToke
 import com.healthify.guardian.platform.iam.domain.model.events.UserAuthenticatedEvent;
 import com.healthify.guardian.platform.iam.domain.model.events.UserCredentialsRegisteredEvent;
 import com.healthify.guardian.platform.iam.domain.model.events.UserLoggedInEvent;
+import com.healthify.guardian.platform.iam.domain.model.events.UserSignedUpWithGoogleEvent;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.Email;
+import com.healthify.guardian.platform.iam.domain.model.valueobjects.GoogleSubject;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedPassword;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.HashedSecret;
 import com.healthify.guardian.platform.iam.domain.model.valueobjects.UserAccountId;
@@ -17,6 +19,7 @@ import com.healthify.guardian.platform.shared.domain.model.aggregates.AbstractDo
 import lombok.Getter;
 
 import java.time.Instant;
+import java.util.function.Supplier;
 
 /**
  * Aggregate root holding the digital identity of a registered caregiver or family member. The e-mail is the only
@@ -25,16 +28,23 @@ import java.time.Instant;
  *
  * <p>Every login needs two steps: the right password ({@link #logIn}) and then the right OTP sent by e-mail
  * ({@link #authenticate}). The account also owns its pending password reset token, kept only as a hash.</p>
+ *
+ * <p>A Google sign-in replaces both steps: Google already checked who the user is. The account keeps the
+ * {@link GoogleSubject} of the Google account it is linked to. An account created by Google gets a random password
+ * nobody knows, so it can only sign in with Google until the user sets one with a password reset.</p>
  */
 @Getter
 public class UserAccount extends AbstractDomainAggregateRoot<UserAccount> {
 
+    private static final String EMAIL_INVALID_KEY = "user-account.email.invalid";
     private static final String PASSWORD_HASH_INVALID_KEY = "user-account.password-hash.invalid";
     private static final String EMAIL_ALREADY_VERIFIED_KEY = "user-account.email.already-verified";
     private static final String CANNOT_AUTHENTICATE_KEY = "user-account.email.not-verified";
     private static final String RESET_TOKEN_HASH_INVALID_KEY = "hashed-secret.invalid";
     private static final String RESET_TOKEN_EXPIRES_AT_INVALID_KEY = "password-reset-token.expires-at.invalid";
     private static final String RESET_TOKEN_NOT_USABLE_KEY = "password-reset-token.invalid";
+    private static final String GOOGLE_SUBJECT_INVALID_KEY = "user-account.google-subject.invalid";
+    private static final String GOOGLE_ACCOUNT_ALREADY_LINKED_KEY = "user-account.google.already-linked";
 
     private UserAccountId id;
     private Email email;
@@ -43,6 +53,7 @@ public class UserAccount extends AbstractDomainAggregateRoot<UserAccount> {
     private UserAccountStatus status;
     private HashedSecret passwordResetTokenHash;
     private Instant passwordResetTokenExpiresAt;
+    private GoogleSubject googleSubject;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -69,6 +80,64 @@ public class UserAccount extends AbstractDomainAggregateRoot<UserAccount> {
         this.createdAt = now;
         this.updatedAt = now;
         registerDomainEvent(new UserCredentialsRegisteredEvent(id, email, now));
+    }
+
+    /**
+     * Creates an account from a Google sign-in. Its e-mail is already verified by Google, so it starts
+     * {@code ACTIVE}. Registers {@link UserSignedUpWithGoogleEvent} and {@link EmailVerifiedEvent}.
+     *
+     * @param googleSubject        the Google account to link
+     * @param email                the e-mail Google verified
+     * @param unusablePasswordHash the hash of a random password nobody knows
+     */
+    public UserAccount(GoogleSubject googleSubject, Email email, HashedPassword unusablePasswordHash) {
+        if (googleSubject == null) {
+            throw new IllegalArgumentException(GOOGLE_SUBJECT_INVALID_KEY);
+        }
+        if (email == null) {
+            throw new IllegalArgumentException(EMAIL_INVALID_KEY);
+        }
+        if (unusablePasswordHash == null) {
+            throw new IllegalArgumentException(PASSWORD_HASH_INVALID_KEY);
+        }
+        var now = Instant.now();
+        this.id = UserAccountId.generate();
+        this.email = email;
+        this.passwordHash = unusablePasswordHash;
+        this.googleSubject = googleSubject;
+        this.emailVerified = true;
+        this.status = UserAccountStatus.ACTIVE;
+        this.createdAt = now;
+        this.updatedAt = now;
+        registerDomainEvent(new UserSignedUpWithGoogleEvent(id, email, now));
+        registerDomainEvent(new EmailVerifiedEvent(id, email, now));
+    }
+
+    /**
+     * Links the Google account that signed in with this account's e-mail. Google proved the e-mail, so an account
+     * still pending verification is verified. Its password is replaced by an unusable one: whoever registered it
+     * never proved they own the e-mail, so that password must not open the account now.
+     *
+     * @param googleSubject        the Google account to link
+     * @param unusablePasswordHash gives the hash of a random password; only called for an unverified account
+     * @throws IllegalStateException if the account is already linked to another Google account
+     */
+    public void linkGoogleAccount(GoogleSubject googleSubject, Supplier<HashedPassword> unusablePasswordHash) {
+        if (googleSubject == null) {
+            throw new IllegalArgumentException(GOOGLE_SUBJECT_INVALID_KEY);
+        }
+        if (googleSubject.equals(this.googleSubject)) {
+            return;
+        }
+        if (this.googleSubject != null) {
+            throw new IllegalStateException(GOOGLE_ACCOUNT_ALREADY_LINKED_KEY);
+        }
+        this.googleSubject = googleSubject;
+        this.updatedAt = Instant.now();
+        if (!emailVerified) {
+            this.passwordHash = unusablePasswordHash.get();
+            confirmEmailVerification();
+        }
     }
 
     /**
@@ -199,6 +268,10 @@ public class UserAccount extends AbstractDomainAggregateRoot<UserAccount> {
 
     public void setPasswordResetTokenExpiresAt(Instant passwordResetTokenExpiresAt) {
         this.passwordResetTokenExpiresAt = passwordResetTokenExpiresAt;
+    }
+
+    public void setGoogleSubject(GoogleSubject googleSubject) {
+        this.googleSubject = googleSubject;
     }
 
     public void setCreatedAt(Instant createdAt) {
