@@ -1,17 +1,19 @@
 package com.healthify.guardian.platform.healthmonitoring.interfaces.rest;
 
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
 import java.util.UUID;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Integration tests of {@code /api/v1/wearable-devices} (Link Wearable Device) and {@code /api/v1/vital-sign-types}.
+ * Integration tests of {@code /api/v1/wearable-devices} (Link and Unlink Wearable Device) and {@code /api/v1/vital-sign-types}.
  */
 class WearableDevicesAndVitalSignTypesControllersIntegrationTest extends HealthMonitoringRestTestBase {
 
@@ -57,6 +59,31 @@ class WearableDevicesAndVitalSignTypesControllersIntegrationTest extends HealthM
         mockMvc.perform(post("/api/v1/wearable-devices").contentType(MediaType.APPLICATION_JSON)
                         .content(device(UUID.randomUUID(), "GP-0001", "SMARTWATCH")))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void unlinksAWearableDeviceSoItsSerialNumberCanBeLinkedAgain() throws Exception {
+        var linked = mockMvc.perform(post("/api/v1/wearable-devices").contentType(MediaType.APPLICATION_JSON)
+                        .content(device(recipient, "GP-0001", "WRISTBAND")))
+                .andReturn().getResponse().getContentAsString();
+        String deviceId = JsonPath.read(linked, "$.id");
+
+        mockMvc.perform(delete("/api/v1/wearable-devices/{id}", deviceId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serialNumber").value("GP-0001"));
+
+        mockMvc.perform(get("/api/v1/wearable-devices/care-recipient/{id}", recipient))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(post("/api/v1/wearable-devices").contentType(MediaType.APPLICATION_JSON)
+                        .content(device(recipient, "GP-0001", "WRISTBAND")))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void unlinkingAnUnknownWearableDeviceIsNotFound() throws Exception {
+        mockMvc.perform(delete("/api/v1/wearable-devices/{id}", UUID.randomUUID()))
+                .andExpect(status().isNotFound());
     }
 
     @Test
