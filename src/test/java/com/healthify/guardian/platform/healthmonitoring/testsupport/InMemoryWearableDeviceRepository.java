@@ -42,4 +42,9 @@ public class InMemoryWearableDeviceRepository implements WearableDeviceRepositor
     public List<WearableDevice> findAll() {
         return store.findAll(device -> true);
     }
+
+    @Override
+    public void delete(WearableDeviceId id) {
+        store.delete(id);
+    }
 }

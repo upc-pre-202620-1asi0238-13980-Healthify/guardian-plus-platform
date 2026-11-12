@@ -57,4 +57,9 @@ public class WearableDeviceRepositoryImpl implements WearableDeviceRepository {
         return persistenceRepository.findAll()
                 .stream().map(WearableDevicePersistenceAssembler::toDomainFromPersistence).toList();
     }
+
+    @Override
+    public void delete(WearableDeviceId id) {
+        persistenceRepository.deleteById(id.value());
+    }
 }

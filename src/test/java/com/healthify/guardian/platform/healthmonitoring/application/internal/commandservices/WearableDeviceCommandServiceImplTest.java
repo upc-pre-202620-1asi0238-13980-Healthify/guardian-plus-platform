@@ -2,6 +2,8 @@ package com.healthify.guardian.platform.healthmonitoring.application.internal.co
 
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.WearableDevice;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands   .LinkWearableDeviceCommand;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.UnlinkWearableDeviceCommand;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.valueobjects.WearableDeviceId;
 import com.healthify.guardian.platform.healthmonitoring.domain.repositories.WearableDeviceRepository;
 import com.healthify.guardian.platform.shared.application.result.Result;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,6 +45,27 @@ class WearableDeviceCommandServiceImplTest {
         var result = service.handle(new LinkWearableDeviceCommand(UUID.randomUUID(), "GP-0001", "WRISTBAND"));
 
         assertThat(((Result.Failure<?, ?>) result).error()).hasFieldOrPropertyWithValue("code", "WEARABLEDEVICE_CONFLICT");
+    }
+
+    @Test
+    void unlinksALinkedDevice() {
+        var device = new WearableDevice(new LinkWearableDeviceCommand(UUID.randomUUID(), "GP-0001", "WRISTBAND"));
+        when(wearableDeviceRepository.findById(device.getId())).thenReturn(Optional.of(device));
+
+        var result = service.handle(new UnlinkWearableDeviceCommand(device.getId()));
+
+        assertThat(result.isSuccess()).isTrue();
+        verify(wearableDeviceRepository).delete(device.getId());
+    }
+
+    @Test
+    void rejectsUnlinkingAnUnknownDevice() {
+        when(wearableDeviceRepository.findById(any())).thenReturn(Optional.empty());
+
+        var result = service.handle(new UnlinkWearableDeviceCommand(new WearableDeviceId(UUID.randomUUID())));
+
+        assertThat(((Result.Failure<?, ?>) result).error()).hasFieldOrPropertyWithValue("code", "WEARABLEDEVICE_NOT_FOUND");
+        verify(wearableDeviceRepository, never()).delete(any());
     }
 
     @Test

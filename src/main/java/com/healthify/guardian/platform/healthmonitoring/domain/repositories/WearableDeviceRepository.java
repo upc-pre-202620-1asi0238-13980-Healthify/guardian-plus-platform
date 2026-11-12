@@ -25,4 +25,6 @@ public interface WearableDeviceRepository {
      * Retrieves every linked device, used to know which care recipients are monitored.
      */
     List<WearableDevice> findAll();
+
+    void delete(WearableDeviceId id);
 }

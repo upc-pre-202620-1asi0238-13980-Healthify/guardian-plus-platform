@@ -3,6 +3,7 @@ package com.healthify.guardian.platform.healthmonitoring.application.internal.co
 import com.healthify.guardian.platform.healthmonitoring.application.commandservices.WearableDeviceCommandService;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.aggregates.WearableDevice;
 import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.LinkWearableDeviceCommand;
+import com.healthify.guardian.platform.healthmonitoring.domain.model.commands.UnlinkWearableDeviceCommand;
 import com.healthify.guardian.platform.healthmonitoring.domain.repositories.WearableDeviceRepository;
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.application.result.Result;
@@ -36,5 +37,15 @@ public class WearableDeviceCommandServiceImpl implements WearableDeviceCommandSe
             return Result.failure(ApplicationError.validationError(
                     "link-wearable-device", MessageResolver.resolveOrDefault(e.getMessage(), e.getMessage())));
         }
+    }
+
+    @Override
+    public Result<WearableDevice, ApplicationError> handle(UnlinkWearableDeviceCommand command) {
+        var device = wearableDeviceRepository.findById(command.wearableDeviceId());
+        if (device.isEmpty()) {
+            return Result.failure(ApplicationError.notFound("WearableDevice", command.wearableDeviceId().value().toString()));
+        }
+        wearableDeviceRepository.delete(command.wearableDeviceId());
+        return Result.success(device.get());
     }
 }

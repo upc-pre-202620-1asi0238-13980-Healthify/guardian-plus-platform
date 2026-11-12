@@ -45,6 +45,10 @@ class InMemoryAggregateStore<K, A extends AbstractDomainAggregateRoot<A>> {
         return aggregates;
     }
 
+    void delete(K id) {
+        items.remove(id);
+    }
+
     Optional<A> findById(K id) {
         return Optional.ofNullable(items.get(id));
     }
