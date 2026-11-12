@@ -3,6 +3,7 @@ package com.healthify.guardian.platform.emergencyalerting.application.acl;
 import com.healthify.guardian.platform.emergencyalerting.domain.model.valueobjects.CareRecipientProfileId;
 import com.healthify.guardian.platform.emergencyalerting.domain.model.valueobjects.UserId;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -20,6 +21,15 @@ public interface ProfileContextAcl {
      * @return true if the relationship exists and is active
      */
     boolean hasActiveCareRelationship(CareRecipientProfileId careRecipientProfileId, UserId userId);
+
+    /**
+     * Retrieves the caregivers of a Fragile Citizen: every Care Circle member that currently holds an
+     * active care relationship with them, whether or not they are an emergency contact.
+     *
+     * @param careRecipientProfileId the Fragile Citizen
+     * @return their caregivers; empty if there are none
+     */
+    List<UserId> findActiveCaregivers(CareRecipientProfileId careRecipientProfileId);
 
     /**
      * Retrieves the Fragile Citizen's name, used to compose notification contents.
