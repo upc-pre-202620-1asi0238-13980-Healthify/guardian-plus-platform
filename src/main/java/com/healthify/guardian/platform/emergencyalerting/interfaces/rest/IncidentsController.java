@@ -32,6 +32,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.healthify.guardian.platform.emergencyalerting.domain.model.queries.GetIncidentsQuery;
+import com.healthify.guardian.platform.emergencyalerting.domain.model.valueobjects.AlertSourceType;
+import com.healthify.guardian.platform.emergencyalerting.domain.model.valueobjects.CareRecipientProfileId;
+import com.healthify.guardian.platform.emergencyalerting.domain.model.valueobjects.DateRange;
+import com.healthify.guardian.platform.emergencyalerting.domain.model.valueobjects.Severity;
+import com.healthify.guardian.platform.shared.infrastructure.i18n.MessageResolver;
+import com.healthify.guardian.platform.shared.interfaces.rest.resources.PageResource;
+import org.springframework.web.bind.annotation.RequestParam;
+import java.time.Instant;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -48,13 +57,86 @@ public class IncidentsController {
 
     private final IncidentCommandService incidentCommandService;
     private final IncidentQueryService incidentQueryService;
-
+    private static final int MAX_PAGE_SIZE = 100;
     public IncidentsController(
             IncidentCommandService incidentCommandService, IncidentQueryService incidentQueryService) {
         this.incidentCommandService = incidentCommandService;
         this.incidentQueryService = incidentQueryService;
     }
+    @GetMapping
+@Operation(
+        summary = "List incidents",
+        description = "Pages through incidents, most recent first, optionally filtered by patient, " +
+                "event type, clinical severity and alert triggering period."
+)
+@ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Incident page retrieved successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid filters or paging"),
+        @ApiResponse(responseCode = "401", description = "Authentication is required")
+})
+public ResponseEntity<?> getIncidents(
+        @RequestParam(required = false)
+        @Parameter(description = "Monitored person unique identifier")
+        UUID patientId,
+        @RequestParam(required = false)
+        @Parameter(description = "Only incidents originated by this event type")
+        AlertSourceType eventType,
+        @RequestParam(required = false)
+        @Parameter(description = "Only incidents with this clinical severity")
+        Severity severity,
+        @RequestParam(required = false)
+        @Parameter(description = "Only incidents whose alert was triggered at or after this ISO-8601 instant")
+        Instant from,
+        @RequestParam(required = false)
+        @Parameter(description = "Only incidents whose alert was triggered at or before this ISO-8601 instant")
+        Instant to,
+        @RequestParam(defaultValue = "0")
+        @Parameter(description = "Zero-based page index")
+        int page,
+        @RequestParam(defaultValue = "20")
+        @Parameter(description = "Page size, 1 to " + MAX_PAGE_SIZE)
+        int size
+) {
+    if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
+        return ErrorResponseAssembler.toErrorResponseFromApplicationError(
+                ApplicationError.validationError(
+                        "incident-history",
+                        MessageResolver.resolveOrDefault(
+                                "incident.page.invalid",
+                                "Invalid page or size"
+                        )
+                )
+        );
+    }
 
+    if (from != null && to != null && from.isAfter(to)) {
+        return ErrorResponseAssembler.toErrorResponseFromApplicationError(
+                ApplicationError.validationError(
+                        "incident-history",
+                        MessageResolver.resolveOrDefault(
+                                "date-range.invalid",
+                                "The start date must not be after the end date"
+                        )
+                )
+        );
+    }
+
+    var query = new GetIncidentsQuery(
+            patientId == null ? null : new CareRecipientProfileId(patientId),
+            new DateRange(from, to),
+            eventType,
+            severity,
+            page,
+            size
+    );
+
+    return ResponseEntity.ok(
+            PageResource.from(
+                    incidentQueryService.handle(query),
+                    IncidentResourceFromEntityAssembler::toResourceFromEntity
+            )
+    );
+}
     @GetMapping("/{incidentId}")
     @Operation(summary = "Get an incident", description = "Retrieves an incident by its identifier.")
     @ApiResponses(value = {

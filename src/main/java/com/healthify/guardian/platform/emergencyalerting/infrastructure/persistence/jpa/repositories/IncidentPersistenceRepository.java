@@ -2,6 +2,7 @@ package com.healthify.guardian.platform.emergencyalerting.infrastructure.persist
 
 import com.healthify.guardian.platform.emergencyalerting.infrastructure.persistence.jpa.entities.IncidentPersistenceEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -11,7 +12,9 @@ import java.util.UUID;
  * Spring Data repository for incident persistence entities.
  */
 @Repository
-public interface IncidentPersistenceRepository extends JpaRepository<IncidentPersistenceEntity, UUID> {
+public interface IncidentPersistenceRepository
+        extends JpaRepository<IncidentPersistenceEntity, UUID>,
+        JpaSpecificationExecutor<IncidentPersistenceEntity> {
 
     Optional<IncidentPersistenceEntity> findByAlertId(UUID alertId);
 
