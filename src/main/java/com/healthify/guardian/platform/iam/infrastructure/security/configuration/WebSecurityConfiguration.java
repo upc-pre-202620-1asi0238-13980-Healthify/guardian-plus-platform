@@ -16,20 +16,13 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * HTTP security of the platform. The API is stateless: the mobile app sends the
- * JWT issued by IAM on every request
- * ({@code Authorization: Bearer <token>}), so there are no sessions, no cookies
- * and therefore no CSRF tokens.
+ * HTTP security of the platform. The API is stateless: the mobile app sends the JWT issued by IAM on every request
+ * ({@code Authorization: Bearer <token>}), so there are no sessions, no cookies and therefore no CSRF tokens.
  *
- * <p>
- * While the other bounded contexts do not read the authenticated user yet,
- * requests without a token are still
- * accepted ({@code iam.security.enforce-authentication=false}). A token that is
- * sent is always validated, and an
- * invalid or expired one is rejected with {@code 401}. Turn enforcement on to
- * require a token everywhere except the
- * public endpoints.
- * </p>
+ * <p>While the other bounded contexts do not read the authenticated user yet, requests without a token are still
+ * accepted ({@code iam.security.enforce-authentication=false}). A token that is sent is always validated, and an
+ * invalid or expired one is rejected with {@code 401}. Turn enforcement on to require a token everywhere except the
+ * public endpoints.</p>
  */
 @Configuration
 public class WebSecurityConfiguration {
@@ -41,8 +34,7 @@ public class WebSecurityConfiguration {
     private static final String[] PUBLIC_ENDPOINTS = {
             "/api/v1/auth/**",
             "/api/v1/user-accounts/availability",
-            // The notification provider calls this webhook from outside: it can never carry
-            // a user token
+            // The notification provider calls this webhook from outside: it can never carry a user token
             "/api/v1/webhooks/**",
             "/swagger-ui.html",
             "/swagger-ui/**",

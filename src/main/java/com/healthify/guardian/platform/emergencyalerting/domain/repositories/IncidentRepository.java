@@ -18,12 +18,11 @@ import java.util.Optional;
 public interface IncidentRepository {
 
     /**
-     * Persists an incident (create or update) and publishes its registered domain
-     * events.
-     *
-     * @param incident the incident to save
-     * @return the saved incident
-     */
+ * Persists an incident (create or update) and publishes its registered domain events.
+ *
+ * @param incident the incident to save
+ * @return the saved incident
+ */
     Incident save(Incident incident);
 
     Optional<Incident> findById(IncidentId id);
