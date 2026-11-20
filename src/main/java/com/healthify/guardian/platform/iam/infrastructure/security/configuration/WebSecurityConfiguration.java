@@ -3,12 +3,16 @@ package com.healthify.guardian.platform.iam.infrastructure.security.configuratio
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
@@ -42,6 +46,25 @@ public class WebSecurityConfiguration {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             @Value("${iam.security.enforce-authentication:false}") boolean enforceAuthentication) throws Exception {
+
+        var defaultAuthenticationEntryPoint = new BearerTokenAuthenticationEntryPoint();
+
+        AuthenticationEntryPoint authenticationEntryPoint = (request, response, authException) -> {
+            // Preserve Spring Security's normal Bearer 401 behaviour and WWW-Authenticate
+            // header.
+            defaultAuthenticationEntryPoint.commence(request, response, authException);
+
+            // TA-18 requires a descriptive error body only for the incident collection
+            // endpoint.
+            if ("GET".equals(request.getMethod())
+                    && "/api/v1/incidents".equals(request.getRequestURI())) {
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.setCharacterEncoding("UTF-8");
+                response.getWriter().write(
+                        "{\"code\":\"UNAUTHORIZED\",\"message\":\"Authentication is required\"}");
+            }
+        };
+
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -49,16 +72,25 @@ public class WebSecurityConfiguration {
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requests -> {
+                    // TA-18: only the incident collection query requires authentication.
+                    // Existing incident endpoints keep their previous security behaviour.
+                    requests.requestMatchers(HttpMethod.GET, "/api/v1/incidents").authenticated();
+
                     // Who the caller is only makes sense with a token, enforcement or not
                     requests.requestMatchers(AUTHENTICATED_ENDPOINTS).authenticated();
                     requests.requestMatchers(PUBLIC_ENDPOINTS).permitAll();
+
                     if (enforceAuthentication) {
                         requests.anyRequest().authenticated();
                     } else {
                         requests.anyRequest().permitAll();
                     }
                 })
-                .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()));
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(authenticationEntryPoint))
+                .oauth2ResourceServer(resourceServer -> resourceServer
+                        .jwt(Customizer.withDefaults())
+                        .authenticationEntryPoint(authenticationEntryPoint));
+
         return http.build();
     }
 
