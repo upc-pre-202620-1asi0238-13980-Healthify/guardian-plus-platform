@@ -1,5 +1,6 @@
 package com.healthify.guardian.platform.subscriptions.interfaces.rest;
 
+import com.healthify.guardian.platform.subscriptions.application.exceptions.SubscriptionPaymentException;
 import com.healthify.guardian.platform.subscriptions.interfaces.rest.resources.ApiErrorResource;
 
 import org.springframework.http.HttpStatus;
@@ -78,6 +79,22 @@ public class SubscriptionRestExceptionHandler {
                         ApiErrorResource.badRequest(
                                 "Invalid value for parameter: "
                                         + exception.getName()
+                        )
+                );
+    }
+
+    @ExceptionHandler(
+            SubscriptionPaymentException.class
+    )
+    public ResponseEntity<ApiErrorResource> handleSubscriptionPayment(
+            SubscriptionPaymentException exception
+    ) {
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(
+                        ApiErrorResource.badRequest(
+                                exception.getMessage()
                         )
                 );
     }

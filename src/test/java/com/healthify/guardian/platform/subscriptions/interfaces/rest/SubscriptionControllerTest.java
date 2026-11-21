@@ -2,6 +2,8 @@ package com.healthify.guardian.platform.subscriptions.interfaces.rest;
 
 import com.healthify.guardian.platform.shared.application.result.ApplicationError;
 import com.healthify.guardian.platform.shared.application.result.Result;
+import com.healthify.guardian.platform.subscriptions.application.commandservices.InitiateRenewalPaymentHandler;
+import com.healthify.guardian.platform.subscriptions.application.commandservices.InitiateSubscriptionPaymentHandler;
 import com.healthify.guardian.platform.subscriptions.application.commandservices.SubscriptionCommandService;
 import com.healthify.guardian.platform.subscriptions.application.queryservices.SubscriptionApplicationQueryService;
 import com.healthify.guardian.platform.subscriptions.domain.model.aggregates.EntitlementSet;
@@ -42,6 +44,14 @@ class SubscriptionControllerTest {
     @Mock
     private SubscriptionApplicationQueryService subscriptionQueryService;
 
+    @Mock
+    private InitiateSubscriptionPaymentHandler
+            initiateSubscriptionPaymentHandler;
+
+    @Mock
+    private InitiateRenewalPaymentHandler
+            initiateRenewalPaymentHandler;
+
     private SubscriptionController controller;
 
     @BeforeEach
@@ -52,7 +62,9 @@ class SubscriptionControllerTest {
         controller =
                 new SubscriptionController(
                         subscriptionCommandService,
-                        subscriptionQueryService
+                        subscriptionQueryService,
+                        initiateSubscriptionPaymentHandler,
+                        initiateRenewalPaymentHandler
                 );
     }
 
