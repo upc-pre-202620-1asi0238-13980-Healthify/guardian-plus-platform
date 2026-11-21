@@ -1,5 +1,9 @@
 package com.healthify.guardian.platform.subscriptions.interfaces.rest;
 
+import com.healthify.guardian.platform.subscriptions.application.commands.InitiateRenewalPaymentCommand;
+import com.healthify.guardian.platform.subscriptions.application.commands.InitiateSubscriptionPaymentCommand;
+import com.healthify.guardian.platform.subscriptions.application.commandservices.InitiateRenewalPaymentHandler;
+import com.healthify.guardian.platform.subscriptions.application.commandservices.InitiateSubscriptionPaymentHandler;
 import com.healthify.guardian.platform.subscriptions.application.commandservices.SubscriptionCommandService;
 import com.healthify.guardian.platform.subscriptions.application.queryservices.SubscriptionApplicationQueryService;
 import com.healthify.guardian.platform.subscriptions.domain.model.commands.ApplyPlanChangeCommand;
@@ -9,6 +13,7 @@ import com.healthify.guardian.platform.subscriptions.domain.model.queries.GetAva
 import com.healthify.guardian.platform.subscriptions.domain.model.queries.GetSubscriptionStatusQuery;
 import com.healthify.guardian.platform.subscriptions.interfaces.rest.resources.ChangeSubscriptionPlanResource;
 import com.healthify.guardian.platform.subscriptions.interfaces.rest.resources.EntitlementSetResource;
+import com.healthify.guardian.platform.subscriptions.interfaces.rest.resources.PaymentInitiationResource;
 import com.healthify.guardian.platform.subscriptions.interfaces.rest.resources.RequestSubscriptionResource;
 import com.healthify.guardian.platform.subscriptions.interfaces.rest.resources.SubscriptionResource;
 import com.healthify.guardian.platform.subscriptions.interfaces.rest.transform.EntitlementSetResourceFromEntityAssembler;
@@ -47,15 +52,29 @@ public class SubscriptionController {
     private final SubscriptionApplicationQueryService
             subscriptionQueryService;
 
+    private final InitiateSubscriptionPaymentHandler
+            initiateSubscriptionPaymentHandler;
+
+    private final InitiateRenewalPaymentHandler
+            initiateRenewalPaymentHandler;
+
     public SubscriptionController(
             SubscriptionCommandService subscriptionCommandService,
-            SubscriptionApplicationQueryService subscriptionQueryService
+            SubscriptionApplicationQueryService subscriptionQueryService,
+            InitiateSubscriptionPaymentHandler initiateSubscriptionPaymentHandler,
+            InitiateRenewalPaymentHandler initiateRenewalPaymentHandler
     ) {
         this.subscriptionCommandService =
                 subscriptionCommandService;
 
         this.subscriptionQueryService =
                 subscriptionQueryService;
+
+        this.initiateSubscriptionPaymentHandler =
+                initiateSubscriptionPaymentHandler;
+
+        this.initiateRenewalPaymentHandler =
+                initiateRenewalPaymentHandler;
     }
 
     @PostMapping
@@ -105,6 +124,76 @@ public class SubscriptionController {
                                         subscription
                                 )
                 );
+    }
+
+    @PostMapping("/{subscriptionId}/payment")
+    @Operation(
+            summary = "Initiate subscription payment",
+            description = """
+                    Initiates the payment required to activate
+                    a pending subscription.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Payment initiated"
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Payment cannot be initiated"
+            )
+    })
+    public ResponseEntity<PaymentInitiationResource>
+    initiateSubscriptionPayment(
+            @PathVariable UUID subscriptionId
+    ) {
+
+        var payment =
+                initiateSubscriptionPaymentHandler.handle(
+                        new InitiateSubscriptionPaymentCommand(
+                                subscriptionId
+                        )
+                );
+
+        return ResponseEntity.ok(
+                toPaymentInitiationResource(payment)
+        );
+    }
+
+    @PostMapping("/{subscriptionId}/renewal/payment")
+    @Operation(
+            summary = "Initiate subscription renewal payment",
+            description = """
+                    Initiates the payment required to renew
+                    an active subscription.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Renewal payment initiated"
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Renewal payment cannot be initiated"
+            )
+    })
+    public ResponseEntity<PaymentInitiationResource>
+    initiateRenewalPayment(
+            @PathVariable UUID subscriptionId
+    ) {
+
+        var payment =
+                initiateRenewalPaymentHandler.handle(
+                        new InitiateRenewalPaymentCommand(
+                                subscriptionId
+                        )
+                );
+
+        return ResponseEntity.ok(
+                toPaymentInitiationResource(payment)
+        );
     }
 
     @PatchMapping("/{subscriptionId}/plan")
@@ -294,6 +383,18 @@ public class SubscriptionController {
                         .toResourceFromEntity(
                                 entitlementSet
                         )
+        );
+    }
+
+    private PaymentInitiationResource toPaymentInitiationResource(
+            com.healthify.guardian.platform.subscriptions.application.outboundservices.PaymentInitiationResult payment
+    ) {
+
+        return new PaymentInitiationResource(
+                payment.provider(),
+                payment.externalReference(),
+                payment.status().name(),
+                payment.clientSecret()
         );
     }
 }

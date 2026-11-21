@@ -1,6 +1,8 @@
 package com.healthify.guardian.platform.subscriptions.interfaces.rest;
 
 import com.healthify.guardian.platform.shared.application.result.Result;
+import com.healthify.guardian.platform.subscriptions.application.commandservices.InitiateRenewalPaymentHandler;
+import com.healthify.guardian.platform.subscriptions.application.commandservices.InitiateSubscriptionPaymentHandler;
 import com.healthify.guardian.platform.subscriptions.application.commandservices.SubscriptionCommandService;
 import com.healthify.guardian.platform.subscriptions.application.queryservices.SubscriptionApplicationQueryService;
 import com.healthify.guardian.platform.subscriptions.domain.model.aggregates.Subscription;
@@ -36,6 +38,14 @@ class SubscriptionControllerValidationTest {
     @Mock
     private SubscriptionApplicationQueryService subscriptionQueryService;
 
+    @Mock
+    private InitiateSubscriptionPaymentHandler
+            initiateSubscriptionPaymentHandler;
+
+    @Mock
+    private InitiateRenewalPaymentHandler
+            initiateRenewalPaymentHandler;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -46,7 +56,9 @@ class SubscriptionControllerValidationTest {
         SubscriptionController controller =
                 new SubscriptionController(
                         subscriptionCommandService,
-                        subscriptionQueryService
+                        subscriptionQueryService,
+                        initiateSubscriptionPaymentHandler,
+                        initiateRenewalPaymentHandler
                 );
 
         LocalValidatorFactoryBean validator =
