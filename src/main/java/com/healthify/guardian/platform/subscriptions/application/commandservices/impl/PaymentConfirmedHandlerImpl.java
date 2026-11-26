@@ -50,12 +50,18 @@ public class PaymentConfirmedHandlerImpl
 
         Objects.requireNonNull(command, "command must not be null");
 
+        SubscriptionId subscriptionId =
+                new SubscriptionId(
+                        command.subscriptionId()
+                );
+
+        subscriptionRepository
+                .acquireSubscriberLockForSubscription(
+                        subscriptionId
+                );
+
         Subscription subscription = subscriptionRepository
-                .findById(
-                        new SubscriptionId(
-                                command.subscriptionId()
-                        )
-                )
+                .findById(subscriptionId)
                 .orElseThrow(
                         () -> new SubscriptionPaymentException(
                                 "Subscription not found"
@@ -105,12 +111,20 @@ public class PaymentConfirmedHandlerImpl
                 now
         );
 
-        entitlementSetCommandService.handle(
-                new SyncEntitlementsFromPlanCommand(
-                        subscription.getId().value(),
-                        subscription.getPlanId().value()
-                )
-        );
+        var entitlementResult =
+                entitlementSetCommandService.handle(
+                        new SyncEntitlementsFromPlanCommand(
+                                subscription.getId().value(),
+                                subscription.getPlanId().value()
+                        )
+                );
+
+        if (entitlementResult.isFailure()) {
+
+            throw new SubscriptionPaymentException(
+                    "Unable to synchronize subscription entitlements"
+            );
+        }
 
         return subscriptionRepository.save(subscription);
     }

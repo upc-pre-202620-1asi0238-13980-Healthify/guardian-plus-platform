@@ -1,7 +1,9 @@
+
 package com.healthify.guardian.platform.subscriptions.infrastructure.scheduling;
 
 import com.healthify.guardian.platform.subscriptions.application.outboundservices.SubscriptionLifecycleCandidateFinder;
 import com.healthify.guardian.platform.subscriptions.infrastructure.payments.simulated.SimulatedPaymentOutcome;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +33,9 @@ public class BillingSchedulerConsumer {
     private final SubscriptionLifecycleExecutionService lifecycleExecutionService;
     private final SimulatedPaymentOutcome renewalOutcome;
 
+    @Value("${subscriptions.billing.payment-provider:simulated}")
+    private String paymentProvider;
+
     public BillingSchedulerConsumer(
             SubscriptionLifecycleCandidateFinder candidateFinder,
             SubscriptionLifecycleExecutionService lifecycleExecutionService,
@@ -52,6 +57,17 @@ public class BillingSchedulerConsumer {
                 parseOutcome(
                         configuredRenewalOutcome
                 );
+    }
+
+    @PostConstruct
+    void validatePaymentProvider() {
+
+        if (!"simulated".equals(paymentProvider)) {
+
+            throw new IllegalStateException(
+                    "Billing scheduler currently supports only the simulated payment provider"
+            );
+        }
     }
 
     @Scheduled(
@@ -88,8 +104,8 @@ public class BillingSchedulerConsumer {
             } catch (RuntimeException exception) {
 
                 /*
-                 * Una suscripción con error no debe impedir
-                 * evaluar las demás.
+                 * Una suscripcion con error no debe impedir
+                 * evaluar las demas.
                  */
                 LOGGER.error(
                         "Subscription lifecycle evaluation failed. subscriptionId={}",

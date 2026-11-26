@@ -8,6 +8,7 @@ import com.healthify.guardian.platform.subscriptions.application.outboundservice
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Currency;
 import java.util.UUID;
 
@@ -70,7 +71,8 @@ class SimulatedPaymentProviderAdapterTest {
                 UUID.randomUUID(),
                 new BigDecimal("29.90"),
                 Currency.getInstance("PEN"),
-                PaymentPurpose.SUBSCRIPTION_RENEWAL
+                PaymentPurpose.SUBSCRIPTION_RENEWAL,
+                Instant.parse("2026-12-21T10:00:00Z")
         );
 
         PaymentInitiationResult firstResult =
@@ -107,6 +109,151 @@ class SimulatedPaymentProviderAdapterTest {
         assertThrows(
                 NullPointerException.class,
                 () -> paymentProvider.initiatePayment(null)
+        );
+    }
+
+    @Test
+    void shouldGenerateSameIdempotencyKeyForActivationRetries() {
+
+        UUID subscriptionId = UUID.randomUUID();
+        UUID subscriberId = UUID.randomUUID();
+        UUID planId = UUID.randomUUID();
+
+        PaymentRequest firstRequest = new PaymentRequest(
+                subscriptionId,
+                subscriberId,
+                planId,
+                new BigDecimal("29.90"),
+                Currency.getInstance("PEN"),
+                PaymentPurpose.SUBSCRIPTION_ACTIVATION
+        );
+
+        PaymentRequest repeatedRequest = new PaymentRequest(
+                subscriptionId,
+                subscriberId,
+                planId,
+                new BigDecimal("29.90"),
+                Currency.getInstance("PEN"),
+                PaymentPurpose.SUBSCRIPTION_ACTIVATION
+        );
+
+        assertEquals(
+                firstRequest.idempotencyKey(),
+                repeatedRequest.idempotencyKey()
+        );
+
+        assertEquals(
+                "guardian-plus:activation:" + subscriptionId,
+                firstRequest.idempotencyKey()
+        );
+    }
+
+    @Test
+    void shouldGenerateRenewalIdempotencyKeyForEachBillingPeriod() {
+
+        UUID subscriptionId = UUID.randomUUID();
+        UUID subscriberId = UUID.randomUUID();
+        UUID planId = UUID.randomUUID();
+
+        Instant firstPeriodEnd =
+                Instant.parse("2026-12-21T10:00:00Z");
+
+        Instant secondPeriodEnd =
+                Instant.parse("2027-01-21T10:00:00Z");
+
+        PaymentRequest activationRequest = new PaymentRequest(
+                subscriptionId,
+                subscriberId,
+                planId,
+                new BigDecimal("29.90"),
+                Currency.getInstance("PEN"),
+                PaymentPurpose.SUBSCRIPTION_ACTIVATION
+        );
+
+        PaymentRequest firstRenewal = new PaymentRequest(
+                subscriptionId,
+                subscriberId,
+                planId,
+                new BigDecimal("29.90"),
+                Currency.getInstance("PEN"),
+                PaymentPurpose.SUBSCRIPTION_RENEWAL,
+                firstPeriodEnd
+        );
+
+        PaymentRequest repeatedRenewal = new PaymentRequest(
+                subscriptionId,
+                subscriberId,
+                planId,
+                new BigDecimal("29.90"),
+                Currency.getInstance("PEN"),
+                PaymentPurpose.SUBSCRIPTION_RENEWAL,
+                firstPeriodEnd
+        );
+
+        PaymentRequest secondRenewal = new PaymentRequest(
+                subscriptionId,
+                subscriberId,
+                planId,
+                new BigDecimal("29.90"),
+                Currency.getInstance("PEN"),
+                PaymentPurpose.SUBSCRIPTION_RENEWAL,
+                secondPeriodEnd
+        );
+
+        assertEquals(
+                firstRenewal.idempotencyKey(),
+                repeatedRenewal.idempotencyKey()
+        );
+
+        assertNotEquals(
+                firstRenewal.idempotencyKey(),
+                secondRenewal.idempotencyKey()
+        );
+
+        assertNotEquals(
+                activationRequest.idempotencyKey(),
+                firstRenewal.idempotencyKey()
+        );
+
+        assertEquals(
+                "guardian-plus:renewal:"
+                        + subscriptionId
+                        + ":"
+                        + firstPeriodEnd,
+                firstRenewal.idempotencyKey()
+        );
+    }
+
+    @Test
+    void shouldRejectRenewalWithoutCurrentPeriodEnd() {
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new PaymentRequest(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        new BigDecimal("29.90"),
+                        Currency.getInstance("PEN"),
+                        PaymentPurpose.SUBSCRIPTION_RENEWAL
+                )
+        );
+    }
+
+    @Test
+    void shouldRejectActivationWithCurrentPeriodEnd() {
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new PaymentRequest(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        new BigDecimal("29.90"),
+                        Currency.getInstance("PEN"),
+                        PaymentPurpose.SUBSCRIPTION_ACTIVATION,
+                        Instant.parse("2026-12-21T10:00:00Z")
+                )
         );
     }
 }
