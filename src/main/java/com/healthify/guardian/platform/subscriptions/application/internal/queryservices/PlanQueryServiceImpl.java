@@ -2,10 +2,12 @@ package com.healthify.guardian.platform.subscriptions.application.internal.query
 
 import com.healthify.guardian.platform.subscriptions.application.queryservices.PlanQueryService;
 import com.healthify.guardian.platform.subscriptions.domain.model.entities.Plan;
+import com.healthify.guardian.platform.subscriptions.domain.model.queries.GetActivePlansQuery;
 import com.healthify.guardian.platform.subscriptions.domain.model.queries.GetPlanByIdQuery;
 import com.healthify.guardian.platform.subscriptions.domain.repositories.PlanRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -26,5 +28,12 @@ public class PlanQueryServiceImpl
 
         return planRepository.findById(
                 query.planId());
+    }
+
+    @Override
+    public List<Plan> handle(
+            GetActivePlansQuery query) {
+
+        return planRepository.findActivePlans();
     }
 }
