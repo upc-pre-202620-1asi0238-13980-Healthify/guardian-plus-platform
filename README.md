@@ -228,3 +228,8 @@ The workflow needs the repository variables `VM_HOST` and `VM_USER` and the secr
 1. Create a branch from `develop` using the `type/description` convention (e.g. `feat/care-routines-and-wellness`, `docs/database-setup`).
 2. Use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages (`feat(...)`, `fix(...)`, `docs(...)`, etc.).
 3. Open a Pull Request targeting `develop` for review.
+
+
+## Subscriptions and Billing
+
+See the [Subscriptions and Billing documentation](docs/subscriptions-billing.md) for Stripe integration, payment idempotency, renewal, webhooks and configuration.

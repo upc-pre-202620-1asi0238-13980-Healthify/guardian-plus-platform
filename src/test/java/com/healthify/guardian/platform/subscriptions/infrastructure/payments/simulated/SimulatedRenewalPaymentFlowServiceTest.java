@@ -1,3 +1,4 @@
+
 package com.healthify.guardian.platform.subscriptions.infrastructure.payments.simulated;
 
 import com.healthify.guardian.platform.subscriptions.application.commands.ConfirmRenewalPaymentCommand;
@@ -49,8 +50,7 @@ class SimulatedRenewalPaymentFlowServiceTest {
     @Test
     void shouldCompleteConfirmedRenewalFlow() {
 
-        UUID subscriptionId =
-                UUID.randomUUID();
+        UUID subscriptionId = UUID.randomUUID();
 
         Subscription subscription =
                 mock(Subscription.class);
@@ -62,17 +62,13 @@ class SimulatedRenewalPaymentFlowServiceTest {
                         PaymentStatus.PENDING
                 );
 
-        when(
-                initiateRenewalPaymentHandler.handle(
-                        any(InitiateRenewalPaymentCommand.class)
-                )
-        ).thenReturn(payment);
+        when(initiateRenewalPaymentHandler.handle(
+                any(InitiateRenewalPaymentCommand.class)
+        )).thenReturn(payment);
 
-        when(
-                renewalPaymentConfirmedHandler.handle(
-                        any(ConfirmRenewalPaymentCommand.class)
-                )
-        ).thenReturn(subscription);
+        when(renewalPaymentConfirmedHandler.handle(
+                any(ConfirmRenewalPaymentCommand.class)
+        )).thenReturn(subscription);
 
         SimulatedRenewalPaymentFlowResult result =
                 service.process(
@@ -81,16 +77,8 @@ class SimulatedRenewalPaymentFlowServiceTest {
                 );
 
         assertNotNull(result);
-
-        assertSame(
-                payment,
-                result.payment()
-        );
-
-        assertSame(
-                subscription,
-                result.subscription()
-        );
+        assertSame(payment, result.payment());
+        assertSame(subscription, result.subscription());
 
         assertEquals(
                 SimulatedPaymentOutcome.CONFIRMED,
@@ -98,25 +86,18 @@ class SimulatedRenewalPaymentFlowServiceTest {
         );
 
         verify(initiateRenewalPaymentHandler)
-                .handle(
-                        any(InitiateRenewalPaymentCommand.class)
-                );
+                .handle(any(InitiateRenewalPaymentCommand.class));
 
         verify(renewalPaymentConfirmedHandler)
-                .handle(
-                        any(ConfirmRenewalPaymentCommand.class)
-                );
+                .handle(any(ConfirmRenewalPaymentCommand.class));
 
-        verifyNoInteractions(
-                renewalPaymentFailedHandler
-        );
+        verifyNoInteractions(renewalPaymentFailedHandler);
     }
 
     @Test
     void shouldCompleteFailedRenewalFlow() {
 
-        UUID subscriptionId =
-                UUID.randomUUID();
+        UUID subscriptionId = UUID.randomUUID();
 
         Subscription subscription =
                 mock(Subscription.class);
@@ -128,17 +109,13 @@ class SimulatedRenewalPaymentFlowServiceTest {
                         PaymentStatus.PENDING
                 );
 
-        when(
-                initiateRenewalPaymentHandler.handle(
-                        any(InitiateRenewalPaymentCommand.class)
-                )
-        ).thenReturn(payment);
+        when(initiateRenewalPaymentHandler.handle(
+                any(InitiateRenewalPaymentCommand.class)
+        )).thenReturn(payment);
 
-        when(
-                renewalPaymentFailedHandler.handle(
-                        any(FailRenewalPaymentCommand.class)
-                )
-        ).thenReturn(subscription);
+        when(renewalPaymentFailedHandler.handle(
+                any(FailRenewalPaymentCommand.class)
+        )).thenReturn(subscription);
 
         SimulatedRenewalPaymentFlowResult result =
                 service.process(
@@ -147,16 +124,8 @@ class SimulatedRenewalPaymentFlowServiceTest {
                 );
 
         assertNotNull(result);
-
-        assertSame(
-                payment,
-                result.payment()
-        );
-
-        assertSame(
-                subscription,
-                result.subscription()
-        );
+        assertSame(payment, result.payment());
+        assertSame(subscription, result.subscription());
 
         assertEquals(
                 SimulatedPaymentOutcome.FAILED,
@@ -164,18 +133,12 @@ class SimulatedRenewalPaymentFlowServiceTest {
         );
 
         verify(initiateRenewalPaymentHandler)
-                .handle(
-                        any(InitiateRenewalPaymentCommand.class)
-                );
+                .handle(any(InitiateRenewalPaymentCommand.class));
 
         verify(renewalPaymentFailedHandler)
-                .handle(
-                        any(FailRenewalPaymentCommand.class)
-                );
+                .handle(any(FailRenewalPaymentCommand.class));
 
-        verifyNoInteractions(
-                renewalPaymentConfirmedHandler
-        );
+        verifyNoInteractions(renewalPaymentConfirmedHandler);
     }
 
     @Test
@@ -199,8 +162,7 @@ class SimulatedRenewalPaymentFlowServiceTest {
     @Test
     void shouldRejectUnexpectedInitialRenewalPaymentStatus() {
 
-        UUID subscriptionId =
-                UUID.randomUUID();
+        UUID subscriptionId = UUID.randomUUID();
 
         PaymentInitiationResult payment =
                 new PaymentInitiationResult(
@@ -209,18 +171,94 @@ class SimulatedRenewalPaymentFlowServiceTest {
                         PaymentStatus.CONFIRMED
                 );
 
-        when(
-                initiateRenewalPaymentHandler.handle(
-                        any(InitiateRenewalPaymentCommand.class)
-                )
-        ).thenReturn(payment);
+        when(initiateRenewalPaymentHandler.handle(
+                any(InitiateRenewalPaymentCommand.class)
+        )).thenReturn(payment);
 
-        assertThrows(
-                IllegalStateException.class,
-                () -> service.process(
-                        subscriptionId,
-                        SimulatedPaymentOutcome.CONFIRMED
-                )
+        IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> service.process(
+                                subscriptionId,
+                                SimulatedPaymentOutcome.CONFIRMED
+                        )
+                );
+
+        assertEquals(
+                "Simulated renewal payment must start in PENDING status",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(
+                renewalPaymentConfirmedHandler,
+                renewalPaymentFailedHandler
+        );
+    }
+
+    @Test
+    void shouldRejectSimulatedConfirmationForStripePayment() {
+
+        UUID subscriptionId = UUID.randomUUID();
+
+        PaymentInitiationResult payment =
+                new PaymentInitiationResult(
+                        "stripe",
+                        "pi_test_stripe_renewal",
+                        PaymentStatus.PENDING
+                );
+
+        when(initiateRenewalPaymentHandler.handle(
+                any(InitiateRenewalPaymentCommand.class)
+        )).thenReturn(payment);
+
+        IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> service.process(
+                                subscriptionId,
+                                SimulatedPaymentOutcome.CONFIRMED
+                        )
+                );
+
+        assertEquals(
+                "Simulated renewal flow requires the simulated payment provider",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(
+                renewalPaymentConfirmedHandler,
+                renewalPaymentFailedHandler
+        );
+    }
+
+    @Test
+    void shouldRejectSimulatedFailureForStripePayment() {
+
+        UUID subscriptionId = UUID.randomUUID();
+
+        PaymentInitiationResult payment =
+                new PaymentInitiationResult(
+                        "stripe",
+                        "pi_test_stripe_renewal",
+                        PaymentStatus.PENDING
+                );
+
+        when(initiateRenewalPaymentHandler.handle(
+                any(InitiateRenewalPaymentCommand.class)
+        )).thenReturn(payment);
+
+        IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> service.process(
+                                subscriptionId,
+                                SimulatedPaymentOutcome.FAILED
+                        )
+                );
+
+        assertEquals(
+                "Simulated renewal flow requires the simulated payment provider",
+                exception.getMessage()
         );
 
         verifyNoInteractions(

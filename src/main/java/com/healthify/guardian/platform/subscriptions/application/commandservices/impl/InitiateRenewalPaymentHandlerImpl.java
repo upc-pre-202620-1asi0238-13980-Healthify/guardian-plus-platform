@@ -85,7 +85,8 @@ public class InitiateRenewalPaymentHandlerImpl
                         subscription.getPlanId().value(),
                         plan.getPrice().amount(),
                         plan.getPrice().currency(),
-                        PaymentPurpose.SUBSCRIPTION_RENEWAL
+                        PaymentPurpose.SUBSCRIPTION_RENEWAL,
+                        subscription.getCurrentPeriodEnd()
                 );
 
         return paymentProvider.initiatePayment(request);

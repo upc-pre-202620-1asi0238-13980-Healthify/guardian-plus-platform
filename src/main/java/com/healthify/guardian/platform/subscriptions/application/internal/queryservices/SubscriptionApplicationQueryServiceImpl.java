@@ -54,6 +54,12 @@ public class SubscriptionApplicationQueryServiceImpl
                     subscriptionRepository
                             .findActiveBySubscriberId(
                                     subscriberId
+                            )
+                            .or(() ->
+                                    subscriptionRepository
+                                            .findPendingBySubscriberId(
+                                                    subscriberId
+                                            )
                             );
 
             if (subscription.isEmpty()) {

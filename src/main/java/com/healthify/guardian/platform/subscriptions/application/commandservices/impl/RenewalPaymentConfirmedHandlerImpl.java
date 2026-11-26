@@ -46,13 +46,19 @@ public class RenewalPaymentConfirmedHandlerImpl
                 "command must not be null"
         );
 
+        SubscriptionId subscriptionId =
+                new SubscriptionId(
+                        command.subscriptionId()
+                );
+
+        subscriptionRepository
+                .acquireSubscriberLockForSubscription(
+                        subscriptionId
+                );
+
         Subscription subscription =
                 subscriptionRepository
-                        .findById(
-                                new SubscriptionId(
-                                        command.subscriptionId()
-                                )
-                        )
+                        .findById(subscriptionId)
                         .orElseThrow(
                                 () -> new SubscriptionPaymentException(
                                         "Subscription not found"

@@ -8,8 +8,14 @@ import com.healthify.guardian.platform.subscriptions.application.commandservices
 import com.healthify.guardian.platform.subscriptions.application.commandservices.PaymentFailedHandler;
 import com.healthify.guardian.platform.subscriptions.application.commandservices.RenewalPaymentConfirmedHandler;
 import com.healthify.guardian.platform.subscriptions.application.commandservices.RenewalPaymentFailedHandler;
-import com.healthify.guardian.platform.subscriptions.application.outboundservices.PaymentPurpose;
+import com.healthify.guardian.platform.subscriptions.domain.model.aggregates.Subscription;
+import com.healthify.guardian.platform.subscriptions.domain.model.valueobjects.SubscriberId;
+import com.healthify.guardian.platform.subscriptions.domain.model.valueobjects.SubscriptionId;
+import com.healthify.guardian.platform.subscriptions.domain.model.valueobjects.SubscriptionStatus;
+import com.healthify.guardian.platform.subscriptions.domain.repositories.SubscriptionRepository;
+import com.healthify.guardian.platform.subscriptions.infrastructure.persistence.jpa.entities.PaymentOperationPersistenceEntity;
 import com.healthify.guardian.platform.subscriptions.infrastructure.persistence.jpa.entities.ProcessedPaymentWebhookEventPersistenceEntity;
+import com.healthify.guardian.platform.subscriptions.infrastructure.persistence.jpa.repositories.PaymentOperationPersistenceRepository;
 import com.healthify.guardian.platform.subscriptions.infrastructure.persistence.jpa.repositories.ProcessedPaymentWebhookEventPersistenceRepository;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
@@ -21,7 +27,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.Currency;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -39,11 +48,8 @@ public class StripeWebhookService {
     private static final String PAYMENT_FAILED_EVENT =
             "payment_intent.payment_failed";
 
-    private static final String METADATA_SUBSCRIPTION_ID =
-            "subscriptionId";
-
-    private static final String METADATA_PURPOSE =
-            "purpose";
+    private static final String PROVIDER_NAME =
+            "stripe";
 
     private static final String DEFAULT_FAILURE_REASON =
             "Stripe payment failed";
@@ -65,6 +71,12 @@ public class StripeWebhookService {
     private final ProcessedPaymentWebhookEventPersistenceRepository
             processedEventRepository;
 
+    private final PaymentOperationPersistenceRepository
+            paymentOperationRepository;
+
+    private final SubscriptionRepository
+            subscriptionRepository;
+
     public StripeWebhookService(
             @Value("${subscriptions.billing.stripe.webhook-secret}")
             String webhookSecret,
@@ -73,16 +85,21 @@ public class StripeWebhookService {
             RenewalPaymentConfirmedHandler renewalPaymentConfirmedHandler,
             RenewalPaymentFailedHandler renewalPaymentFailedHandler,
             ProcessedPaymentWebhookEventPersistenceRepository
-                    processedEventRepository
+                    processedEventRepository,
+            PaymentOperationPersistenceRepository
+                    paymentOperationRepository,
+            SubscriptionRepository subscriptionRepository
     ) {
 
         if (webhookSecret == null || webhookSecret.isBlank()) {
+
             throw new IllegalStateException(
                     "Stripe webhook secret must be configured when Stripe payment provider is enabled"
             );
         }
 
-        this.webhookSecret = webhookSecret;
+        this.webhookSecret =
+                webhookSecret;
 
         this.paymentConfirmedHandler =
                 Objects.requireNonNull(
@@ -107,6 +124,16 @@ public class StripeWebhookService {
         this.processedEventRepository =
                 Objects.requireNonNull(
                         processedEventRepository
+                );
+
+        this.paymentOperationRepository =
+                Objects.requireNonNull(
+                        paymentOperationRepository
+                );
+
+        this.subscriptionRepository =
+                Objects.requireNonNull(
+                        subscriptionRepository
                 );
     }
 
@@ -140,46 +167,175 @@ public class StripeWebhookService {
         PaymentIntent paymentIntent =
                 extractPaymentIntent(event);
 
+        String externalReference =
+                paymentIntent.getId();
+
+        if (externalReference == null
+                || externalReference.isBlank()) {
+
+            throw new IllegalStateException(
+                    "Stripe PaymentIntent reference is missing"
+            );
+        }
+
         String eventKey =
                 createEventKey(
                         event.getType(),
-                        paymentIntent.getId()
+                        externalReference
                 );
 
         if (processedEventRepository.existsById(eventKey)) {
             return;
         }
 
-        PaymentMetadata metadata =
-                extractMetadata(paymentIntent);
+        Map<String, String> metadata =
+                paymentIntent.getMetadata();
 
-        switch (event.getType()) {
+        if (metadata == null) {
 
-            case PAYMENT_SUCCEEDED_EVENT ->
-                    handleSuccessfulPayment(
-                            metadata,
-                            paymentIntent.getId()
-                    );
-
-            case PAYMENT_FAILED_EVENT ->
-                    handleFailedPayment(
-                            metadata,
-                            paymentIntent
-                    );
-
-            default -> {
-                return;
-            }
+            throw new IllegalStateException(
+                    "Stripe PaymentIntent metadata is missing"
+            );
         }
 
-        processedEventRepository.save(
-                new ProcessedPaymentWebhookEventPersistenceEntity(
-                        eventKey,
-                        event.getId(),
-                        paymentIntent.getId(),
-                        event.getType(),
-                        Instant.now()
-                )
+        String operationKey =
+                requireMetadata(
+                        metadata,
+                        "operationKey"
+                );
+
+        UUID subscriberId =
+                parseUuid(
+                        requireMetadata(
+                                metadata,
+                                "subscriberId"
+                        ),
+                        "subscriberId"
+                );
+
+        subscriptionRepository.acquireSubscriberLock(
+                new SubscriberId(subscriberId)
+        );
+
+        PaymentOperationPersistenceEntity operation =
+                paymentOperationRepository
+                        .findByIdForUpdate(operationKey)
+                        .orElseThrow(
+                                () -> new IllegalStateException(
+                                        "Stripe payment operation not found"
+                                )
+                        );
+
+        /*
+         * Verificar nuevamente despues de adquirir los bloqueos.
+         * Otra transaccion podria haber procesado el evento.
+         */
+        if (processedEventRepository.existsById(eventKey)) {
+            return;
+        }
+
+        validatePaymentIntent(
+                paymentIntent,
+                operation,
+                metadata,
+                event.getType()
+        );
+
+        boolean successfulPayment =
+                PAYMENT_SUCCEEDED_EVENT.equals(
+                        event.getType()
+                );
+
+        /*
+         * Un fallo recibido despues de una confirmacion
+         * no debe modificar la suscripcion.
+         */
+        if (!successfulPayment
+                && processedEventRepository.existsById(
+                        createEventKey(
+                                PAYMENT_SUCCEEDED_EVENT,
+                                externalReference
+                        )
+                )) {
+
+            saveProcessedEvent(
+                    event,
+                    eventKey,
+                    externalReference
+            );
+
+            return;
+        }
+
+        Subscription subscription =
+                subscriptionRepository
+                        .findById(
+                                new SubscriptionId(
+                                        operation.getSubscriptionId()
+                                )
+                        )
+                        .orElseThrow(
+                                () -> new IllegalStateException(
+                                        "Subscription associated with payment was not found"
+                                )
+                        );
+
+        if (!subscription.getSubscriberId()
+                .value()
+                .equals(operation.getSubscriberId())) {
+
+            throw new IllegalStateException(
+                    "Payment operation subscriber does not match subscription"
+            );
+        }
+
+        boolean currentOperation =
+                isCurrentOperation(
+                        subscription,
+                        operation
+                );
+
+        if (!currentOperation) {
+
+            if (successfulPayment) {
+
+                throw new IllegalStateException(
+                        "Confirmed payment does not match the current subscription state or billing period. Reconciliation required."
+                );
+            }
+
+            /*
+             * Un fallo antiguo no cambia el periodo
+             * ni el estado actual de la suscripcion.
+             */
+            saveProcessedEvent(
+                    event,
+                    eventKey,
+                    externalReference
+            );
+
+            return;
+        }
+
+        if (successfulPayment) {
+
+            handleSuccessfulPayment(
+                    operation,
+                    externalReference
+            );
+
+        } else {
+
+            handleFailedPayment(
+                    operation,
+                    paymentIntent
+            );
+        }
+
+        saveProcessedEvent(
+                event,
+                eventKey,
+                externalReference
         );
     }
 
@@ -206,6 +362,7 @@ public class StripeWebhookService {
                         );
 
         if (!(stripeObject instanceof PaymentIntent paymentIntent)) {
+
             throw new IllegalStateException(
                     "Stripe webhook event does not contain a PaymentIntent"
             );
@@ -214,98 +371,211 @@ public class StripeWebhookService {
         return paymentIntent;
     }
 
-    private PaymentMetadata extractMetadata(
-            PaymentIntent paymentIntent
+    private void validatePaymentIntent(
+            PaymentIntent paymentIntent,
+            PaymentOperationPersistenceEntity operation,
+            Map<String, String> metadata,
+            String eventType
     ) {
 
-        Map<String, String> metadata =
-                paymentIntent.getMetadata();
+        if (!PROVIDER_NAME.equals(operation.getProvider())) {
 
-        if (metadata == null) {
             throw new IllegalStateException(
-                    "Stripe PaymentIntent metadata is missing"
+                    "Payment operation provider is invalid"
             );
         }
 
-        String subscriptionIdValue =
-                metadata.get(
-                        METADATA_SUBSCRIPTION_ID
+        if (operation.getExternalReference() == null
+                || !operation.getExternalReference()
+                        .equals(paymentIntent.getId())) {
+
+            throw new IllegalStateException(
+                    "Stripe PaymentIntent does not match the stored payment reference"
+            );
+        }
+
+        long expectedAmount =
+                calculateExpectedAmount(operation);
+
+        String expectedCurrency =
+                operation.getCurrency()
+                        .toLowerCase(Locale.ROOT);
+
+        if (!Objects.equals(
+                paymentIntent.getAmount(),
+                expectedAmount
+        ) || !Objects.equals(
+                paymentIntent.getCurrency(),
+                expectedCurrency
+        )) {
+
+            throw new IllegalStateException(
+                    "Stripe payment amount or currency does not match the stored operation"
+            );
+        }
+
+        boolean metadataMatches =
+                Objects.equals(
+                        metadata.get("operationKey"),
+                        operation.getIdempotencyKey()
+                )
+
+                && Objects.equals(
+                        metadata.get("subscriptionId"),
+                        operation.getSubscriptionId().toString()
+                )
+
+                && Objects.equals(
+                        metadata.get("subscriberId"),
+                        operation.getSubscriberId().toString()
+                )
+
+                && Objects.equals(
+                        metadata.get("planId"),
+                        operation.getPlanId().toString()
+                )
+
+                && Objects.equals(
+                        metadata.get("purpose"),
+                        operation.getPurpose().name()
                 );
 
-        String purposeValue =
-                metadata.get(
-                        METADATA_PURPOSE
+        String expectedPeriodEnd =
+                operation.getCurrentPeriodEnd() == null
+                        ? null
+                        : operation.getCurrentPeriodEnd().toString();
+
+        metadataMatches =
+                metadataMatches
+                        && Objects.equals(
+                                metadata.get("currentPeriodEnd"),
+                                expectedPeriodEnd
+                        );
+
+        if (!metadataMatches) {
+
+            throw new IllegalStateException(
+                    "Stripe payment metadata does not match the stored operation"
+            );
+        }
+
+        if (PAYMENT_SUCCEEDED_EVENT.equals(eventType)) {
+
+            if (!"succeeded".equals(paymentIntent.getStatus())) {
+
+                throw new IllegalStateException(
+                        "Stripe PaymentIntent is not in succeeded status"
+                );
+            }
+
+            if (!Objects.equals(
+                    paymentIntent.getAmountReceived(),
+                    expectedAmount
+            )) {
+
+                throw new IllegalStateException(
+                        "Stripe received amount does not match the expected amount"
+                );
+            }
+        }
+    }
+
+    private long calculateExpectedAmount(
+            PaymentOperationPersistenceEntity operation
+    ) {
+
+        Currency currency =
+                Currency.getInstance(
+                        operation.getCurrency()
                 );
 
-        if (subscriptionIdValue == null
-                || subscriptionIdValue.isBlank()) {
+        int fractionDigits =
+                currency.getDefaultFractionDigits();
+
+        if (fractionDigits < 0) {
 
             throw new IllegalStateException(
-                    "Stripe PaymentIntent subscriptionId metadata is missing"
+                    "Payment operation currency is unsupported"
             );
         }
 
-        if (purposeValue == null
-                || purposeValue.isBlank()) {
+        long amount =
+                operation.getAmount()
+                        .setScale(
+                                fractionDigits,
+                                RoundingMode.UNNECESSARY
+                        )
+                        .movePointRight(fractionDigits)
+                        .longValueExact();
+
+        if (amount <= 0) {
 
             throw new IllegalStateException(
-                    "Stripe PaymentIntent purpose metadata is missing"
+                    "Payment operation amount must be greater than zero"
             );
         }
 
-        UUID subscriptionId;
+        return amount;
+    }
 
-        try {
-            subscriptionId =
-                    UUID.fromString(
-                            subscriptionIdValue
+    private boolean isCurrentOperation(
+            Subscription subscription,
+            PaymentOperationPersistenceEntity operation
+    ) {
+
+        if (!subscription.getPlanId()
+                .value()
+                .equals(operation.getPlanId())) {
+
+            return false;
+        }
+
+        return switch (operation.getPurpose()) {
+
+            case SUBSCRIPTION_ACTIVATION ->
+
+                    subscription.getStatus()
+                            == SubscriptionStatus.PENDING
+
+                    && operation.getCurrentPeriodEnd() == null;
+
+            case SUBSCRIPTION_RENEWAL ->
+
+                    subscription.getStatus()
+                            == SubscriptionStatus.ACTIVE
+
+                    && !subscription.isCancelAtPeriodEnd()
+
+                    && operation.getCurrentPeriodEnd() != null
+
+                    && Objects.equals(
+                            subscription.getCurrentPeriodEnd(),
+                            operation.getCurrentPeriodEnd()
                     );
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalStateException(
-                    "Stripe PaymentIntent subscriptionId metadata is invalid",
-                    exception
-            );
-        }
-
-        PaymentPurpose purpose;
-
-        try {
-            purpose =
-                    PaymentPurpose.valueOf(
-                            purposeValue
-                    );
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalStateException(
-                    "Stripe PaymentIntent purpose metadata is invalid",
-                    exception
-            );
-        }
-
-        return new PaymentMetadata(
-                subscriptionId,
-                purpose
-        );
+        };
     }
 
     private void handleSuccessfulPayment(
-            PaymentMetadata metadata,
+            PaymentOperationPersistenceEntity operation,
             String externalReference
     ) {
 
-        switch (metadata.purpose()) {
+        switch (operation.getPurpose()) {
 
             case SUBSCRIPTION_ACTIVATION ->
+
                     paymentConfirmedHandler.handle(
                             new ConfirmSubscriptionPaymentCommand(
-                                    metadata.subscriptionId(),
+                                    operation.getSubscriptionId(),
                                     externalReference
                             )
                     );
 
             case SUBSCRIPTION_RENEWAL ->
+
                     renewalPaymentConfirmedHandler.handle(
                             new ConfirmRenewalPaymentCommand(
-                                    metadata.subscriptionId(),
+                                    operation.getSubscriptionId(),
                                     externalReference
                             )
                     );
@@ -313,30 +583,30 @@ public class StripeWebhookService {
     }
 
     private void handleFailedPayment(
-            PaymentMetadata metadata,
+            PaymentOperationPersistenceEntity operation,
             PaymentIntent paymentIntent
     ) {
 
         String failureReason =
-                extractFailureReason(
-                        paymentIntent
-                );
+                extractFailureReason(paymentIntent);
 
-        switch (metadata.purpose()) {
+        switch (operation.getPurpose()) {
 
             case SUBSCRIPTION_ACTIVATION ->
+
                     paymentFailedHandler.handle(
                             new FailSubscriptionPaymentCommand(
-                                    metadata.subscriptionId(),
+                                    operation.getSubscriptionId(),
                                     paymentIntent.getId(),
                                     failureReason
                             )
                     );
 
             case SUBSCRIPTION_RENEWAL ->
+
                     renewalPaymentFailedHandler.handle(
                             new FailRenewalPaymentCommand(
-                                    metadata.subscriptionId(),
+                                    operation.getSubscriptionId(),
                                     paymentIntent.getId(),
                                     failureReason
                             )
@@ -364,6 +634,46 @@ public class StripeWebhookService {
         return message;
     }
 
+    private String requireMetadata(
+            Map<String, String> metadata,
+            String field
+    ) {
+
+        String value =
+                metadata.get(field);
+
+        if (value == null || value.isBlank()) {
+
+            throw new IllegalStateException(
+                    "Stripe PaymentIntent "
+                            + field
+                            + " metadata is missing"
+            );
+        }
+
+        return value;
+    }
+
+    private UUID parseUuid(
+            String value,
+            String field
+    ) {
+
+        try {
+
+            return UUID.fromString(value);
+
+        } catch (IllegalArgumentException exception) {
+
+            throw new IllegalStateException(
+                    "Stripe PaymentIntent "
+                            + field
+                            + " metadata is invalid",
+                    exception
+            );
+        }
+    }
+
     private String createEventKey(
             String eventType,
             String externalReference
@@ -374,9 +684,20 @@ public class StripeWebhookService {
                 + externalReference;
     }
 
-    private record PaymentMetadata(
-            UUID subscriptionId,
-            PaymentPurpose purpose
+    private void saveProcessedEvent(
+            Event event,
+            String eventKey,
+            String externalReference
     ) {
+
+        processedEventRepository.save(
+                new ProcessedPaymentWebhookEventPersistenceEntity(
+                        eventKey,
+                        event.getId(),
+                        externalReference,
+                        event.getType(),
+                        Instant.now()
+                )
+        );
     }
 }

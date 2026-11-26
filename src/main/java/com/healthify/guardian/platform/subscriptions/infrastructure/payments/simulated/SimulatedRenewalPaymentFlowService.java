@@ -1,3 +1,4 @@
+
 package com.healthify.guardian.platform.subscriptions.infrastructure.payments.simulated;
 
 import com.healthify.guardian.platform.subscriptions.application.commands.ConfirmRenewalPaymentCommand;
@@ -20,6 +21,9 @@ public class SimulatedRenewalPaymentFlowService {
     private static final String SIMULATED_FAILURE_REASON =
             "Simulated renewal payment declined";
 
+    private static final String SIMULATED_PROVIDER =
+            "stripe-simulator";
+
     private final InitiateRenewalPaymentHandler initiateRenewalPaymentHandler;
     private final RenewalPaymentConfirmedHandler renewalPaymentConfirmedHandler;
     private final RenewalPaymentFailedHandler renewalPaymentFailedHandler;
@@ -29,6 +33,7 @@ public class SimulatedRenewalPaymentFlowService {
             RenewalPaymentConfirmedHandler renewalPaymentConfirmedHandler,
             RenewalPaymentFailedHandler renewalPaymentFailedHandler
     ) {
+
         this.initiateRenewalPaymentHandler =
                 Objects.requireNonNull(initiateRenewalPaymentHandler);
 
@@ -61,7 +66,15 @@ public class SimulatedRenewalPaymentFlowService {
                         )
                 );
 
+        if (!SIMULATED_PROVIDER.equals(payment.provider())) {
+
+            throw new IllegalStateException(
+                    "Simulated renewal flow requires the simulated payment provider"
+            );
+        }
+
         if (payment.status() != PaymentStatus.PENDING) {
+
             throw new IllegalStateException(
                     "Simulated renewal payment must start in PENDING status"
             );

@@ -21,12 +21,17 @@ import com.healthify.guardian.platform.subscriptions.domain.model.commands.Renew
 import com.healthify.guardian.platform.subscriptions.application.commandservices.EntitlementSetCommandService;
 import com.healthify.guardian.platform.subscriptions.domain.model.commands.RevokeAllEntitlementsCommand;
 import com.healthify.guardian.platform.subscriptions.domain.model.commands.SyncEntitlementsFromPlanCommand;
+import com.healthify.guardian.platform.subscriptions.domain.model.entities.Plan;
+import com.healthify.guardian.platform.subscriptions.domain.model.valueobjects.BillingCycle;
 
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 
@@ -99,6 +104,11 @@ public class SubscriptionCommandServiceImpl
                 );
             }
 
+            subscriptionRepository
+                    .acquireSubscriberLock(
+                            subscriberId
+                    );
+
             var existingSubscription =
                     subscriptionRepository
                             .findActiveBySubscriberId(
@@ -115,8 +125,41 @@ public class SubscriptionCommandServiceImpl
                 );
             }
 
+            var pendingSubscription =
+                    subscriptionRepository
+                            .findPendingBySubscriberId(
+                                    subscriberId
+                            );
+
             Instant now =
                     Instant.now();
+
+            if (pendingSubscription.isPresent()) {
+
+                Subscription pending =
+                        pendingSubscription.get();
+
+                if (!pending.getPlanId().equals(planId)) {
+
+                    return Result.failure(
+                            ApplicationError.businessRuleViolation(
+                                    operation,
+                                    "Subscriber already has a pending subscription for another plan"
+                            )
+                    );
+                }
+
+                if (!plan.get().requiresPayment()) {
+
+                    return activateFreeSubscription(
+                            pending,
+                            plan.get(),
+                            now
+                    );
+                }
+
+                return Result.success(pending);
+            }
 
             Subscription subscription =
                     new Subscription(
@@ -129,11 +172,22 @@ public class SubscriptionCommandServiceImpl
                     subscriptionRepository
                             .save(subscription);
 
+            if (!plan.get().requiresPayment()) {
+
+                return activateFreeSubscription(
+                        saved,
+                        plan.get(),
+                        now
+                );
+            }
+
             return Result.success(
                     saved
             );
 
         } catch (IllegalArgumentException exception) {
+
+            markRollbackOnlyIfTransactionActive();
 
             return Result.failure(
                     ApplicationError.validationError(
@@ -144,12 +198,97 @@ public class SubscriptionCommandServiceImpl
 
         } catch (IllegalStateException exception) {
 
+            markRollbackOnlyIfTransactionActive();
+
             return Result.failure(
                     ApplicationError.businessRuleViolation(
                             operation,
                             resolve(exception)
                     )
             );
+        }
+    }
+
+    private Result<Subscription, ApplicationError>
+    activateFreeSubscription(
+            Subscription subscription,
+            Plan plan,
+            Instant now
+    ) {
+
+        final String operation =
+                "activate-free-subscription";
+
+        Instant periodEnd =
+                calculatePeriodEnd(
+                        now,
+                        plan.getBillingCycle()
+                );
+
+        subscription.activate(
+                subscription.getPlanId(),
+                now,
+                periodEnd,
+                now
+        );
+
+        var entitlementResult =
+                entitlementSetCommandService.handle(
+                        new SyncEntitlementsFromPlanCommand(
+                                subscription.getId().value(),
+                                subscription.getPlanId().value()
+                        )
+                );
+
+        if (entitlementResult.isFailure()) {
+
+            markRollbackOnlyIfTransactionActive();
+
+            return Result.failure(
+                    ApplicationError.businessRuleViolation(
+                            operation,
+                            "Unable to synchronize subscription entitlements"
+                    )
+            );
+        }
+
+        Subscription saved =
+                subscriptionRepository.save(
+                        subscription
+                );
+
+        return Result.success(saved);
+    }
+
+    private Instant calculatePeriodEnd(
+            Instant periodStart,
+            BillingCycle billingCycle
+    ) {
+
+        return switch (billingCycle) {
+
+            case MONTHLY ->
+                    periodStart
+                            .atZone(ZoneOffset.UTC)
+                            .plusMonths(1)
+                            .toInstant();
+
+            case ANNUAL ->
+                    periodStart
+                            .atZone(ZoneOffset.UTC)
+                            .plusYears(1)
+                            .toInstant();
+        };
+    }
+
+    private static void markRollbackOnlyIfTransactionActive() {
+
+        if (TransactionSynchronizationManager
+                .isActualTransactionActive()) {
+
+            TransactionAspectSupport
+                    .currentTransactionStatus()
+                    .setRollbackOnly();
         }
     }
 
@@ -171,6 +310,11 @@ public class SubscriptionCommandServiceImpl
             PlanId planId =
                     new PlanId(
                             command.planId()
+                    );
+
+            subscriptionRepository
+                    .acquireSubscriberLockForSubscription(
+                            subscriptionId
                     );
 
             var subscription =
@@ -231,6 +375,7 @@ public class SubscriptionCommandServiceImpl
                     command.periodEnd(),
                     now
             );
+
             var entitlementResult =
                     entitlementSetCommandService.handle(
                             new SyncEntitlementsFromPlanCommand(
@@ -240,6 +385,8 @@ public class SubscriptionCommandServiceImpl
                     );
 
             if (entitlementResult.isFailure()) {
+
+                markRollbackOnlyIfTransactionActive();
 
                 return Result.failure(
                         ApplicationError.businessRuleViolation(
@@ -259,6 +406,8 @@ public class SubscriptionCommandServiceImpl
 
         } catch (IllegalArgumentException exception) {
 
+            markRollbackOnlyIfTransactionActive();
+
             return Result.failure(
                     ApplicationError.validationError(
                             operation,
@@ -267,6 +416,8 @@ public class SubscriptionCommandServiceImpl
             );
 
         } catch (IllegalStateException exception) {
+
+            markRollbackOnlyIfTransactionActive();
 
             return Result.failure(
                     ApplicationError.businessRuleViolation(
@@ -300,6 +451,7 @@ public class SubscriptionCommandServiceImpl
                 true
         );
     }
+
     @Override
     public Result<Subscription, ApplicationError> handle(
             ApplyPlanChangeCommand command
@@ -318,6 +470,11 @@ public class SubscriptionCommandServiceImpl
             PlanId newPlanId =
                     new PlanId(
                             command.newPlanId()
+                    );
+
+            subscriptionRepository
+                    .acquireSubscriberLockForSubscription(
+                            subscriptionId
                     );
 
             var subscription =
@@ -364,6 +521,16 @@ public class SubscriptionCommandServiceImpl
                 );
             }
 
+            if (newPlan.get().requiresPayment()) {
+
+                return Result.failure(
+                        ApplicationError.businessRuleViolation(
+                                operation,
+                                "Changing to a paid plan requires a confirmed payment"
+                        )
+                );
+            }
+
             Subscription current =
                     subscription.get();
 
@@ -381,6 +548,8 @@ public class SubscriptionCommandServiceImpl
                     );
 
             if (entitlementResult.isFailure()) {
+
+                markRollbackOnlyIfTransactionActive();
 
                 return Result.failure(
                         ApplicationError.businessRuleViolation(
@@ -401,6 +570,8 @@ public class SubscriptionCommandServiceImpl
 
         } catch (IllegalArgumentException exception) {
 
+            markRollbackOnlyIfTransactionActive();
+
             return Result.failure(
                     ApplicationError.validationError(
                             operation,
@@ -409,6 +580,8 @@ public class SubscriptionCommandServiceImpl
             );
 
         } catch (IllegalStateException exception) {
+
+            markRollbackOnlyIfTransactionActive();
 
             return Result.failure(
                     ApplicationError.businessRuleViolation(
@@ -446,6 +619,11 @@ public class SubscriptionCommandServiceImpl
                             rawSubscriptionId
                     );
 
+            subscriptionRepository
+                    .acquireSubscriberLockForSubscription(
+                            subscriptionId
+                    );
+
             var subscription =
                     subscriptionRepository
                             .findById(
@@ -474,6 +652,7 @@ public class SubscriptionCommandServiceImpl
                     current,
                     now
             );
+
             if (revokeEntitlements) {
 
                 var entitlementResult =
@@ -484,6 +663,8 @@ public class SubscriptionCommandServiceImpl
                         );
 
                 if (entitlementResult.isFailure()) {
+
+                    markRollbackOnlyIfTransactionActive();
 
                     return Result.failure(
                             ApplicationError.businessRuleViolation(
@@ -504,6 +685,8 @@ public class SubscriptionCommandServiceImpl
 
         } catch (IllegalArgumentException exception) {
 
+            markRollbackOnlyIfTransactionActive();
+
             return Result.failure(
                     ApplicationError.validationError(
                             operation,
@@ -512,6 +695,8 @@ public class SubscriptionCommandServiceImpl
             );
 
         } catch (IllegalStateException exception) {
+
+            markRollbackOnlyIfTransactionActive();
 
             return Result.failure(
                     ApplicationError.businessRuleViolation(
@@ -554,6 +739,11 @@ public class SubscriptionCommandServiceImpl
                             command.subscriptionId()
                     );
 
+            subscriptionRepository
+                    .acquireSubscriberLockForSubscription(
+                            subscriptionId
+                    );
+
             var subscription =
                     subscriptionRepository.findById(
                             subscriptionId
@@ -590,6 +780,8 @@ public class SubscriptionCommandServiceImpl
 
         } catch (IllegalArgumentException exception) {
 
+            markRollbackOnlyIfTransactionActive();
+
             return Result.failure(
                     ApplicationError.validationError(
                             operation,
@@ -598,6 +790,8 @@ public class SubscriptionCommandServiceImpl
             );
 
         } catch (IllegalStateException exception) {
+
+            markRollbackOnlyIfTransactionActive();
 
             return Result.failure(
                     ApplicationError.businessRuleViolation(

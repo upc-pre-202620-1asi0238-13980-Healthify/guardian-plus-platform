@@ -1,8 +1,11 @@
 package com.healthify.guardian.platform.subscriptions.application.commandservices;
 
+import com.healthify.guardian.platform.shared.application.result.ApplicationError;
+import com.healthify.guardian.platform.shared.application.result.Result;
 import com.healthify.guardian.platform.subscriptions.application.commands.ConfirmSubscriptionPaymentCommand;
 import com.healthify.guardian.platform.subscriptions.application.commandservices.impl.PaymentConfirmedHandlerImpl;
 import com.healthify.guardian.platform.subscriptions.application.exceptions.SubscriptionPaymentException;
+import com.healthify.guardian.platform.subscriptions.domain.model.aggregates.EntitlementSet;
 import com.healthify.guardian.platform.subscriptions.domain.model.aggregates.Subscription;
 import com.healthify.guardian.platform.subscriptions.domain.model.commands.SyncEntitlementsFromPlanCommand;
 import com.healthify.guardian.platform.subscriptions.domain.model.entities.Plan;
@@ -101,6 +104,16 @@ class PaymentConfirmedHandlerTest {
                         any(PlanId.class)
                 )
         ).thenReturn(Optional.of(plan));
+
+        when(
+                entitlementSetCommandService.handle(
+                        any(SyncEntitlementsFromPlanCommand.class)
+                )
+        ).thenReturn(
+                Result.success(
+                        mock(EntitlementSet.class)
+                )
+        );
 
         when(
                 subscriptionRepository.save(subscription)
@@ -243,6 +256,88 @@ class PaymentConfirmedHandlerTest {
         verifyNoInteractions(
                 entitlementSetCommandService
         );
+
+        verify(
+                subscriptionRepository,
+                never()
+        ).save(any());
+    }
+
+    @Test
+    void shouldNotSaveActivationWhenEntitlementSynchronizationFails() {
+
+        UUID subscriptionUuid = UUID.randomUUID();
+
+        PlanId planId =
+                new PlanId(UUID.randomUUID());
+
+        Subscription subscription =
+                mock(Subscription.class);
+
+        Plan plan =
+                mock(Plan.class);
+
+        when(subscription.getId())
+                .thenReturn(
+                        new SubscriptionId(subscriptionUuid)
+                );
+
+        when(subscription.getPlanId())
+                .thenReturn(planId);
+
+        when(subscription.getStatus())
+                .thenReturn(
+                        SubscriptionStatus.PENDING
+                );
+
+        when(plan.isActive())
+                .thenReturn(true);
+
+        when(plan.requiresPayment())
+                .thenReturn(true);
+
+        when(plan.getBillingCycle())
+                .thenReturn(BillingCycle.MONTHLY);
+
+        when(
+                subscriptionRepository.findById(
+                        any(SubscriptionId.class)
+                )
+        ).thenReturn(Optional.of(subscription));
+
+        when(
+                planRepository.findById(
+                        any(PlanId.class)
+                )
+        ).thenReturn(Optional.of(plan));
+
+        when(
+                entitlementSetCommandService.handle(
+                        any(SyncEntitlementsFromPlanCommand.class)
+                )
+        ).thenReturn(
+                Result.failure(
+                        ApplicationError.businessRuleViolation(
+                                "sync-entitlements-from-plan",
+                                "Unable to synchronize subscription entitlements"
+                        )
+                )
+        );
+
+        assertThrows(
+                SubscriptionPaymentException.class,
+                () -> handler.handle(
+                        new ConfirmSubscriptionPaymentCommand(
+                                subscriptionUuid,
+                                "pay_test_entitlement_failure"
+                        )
+                )
+        );
+
+        verify(entitlementSetCommandService)
+                .handle(
+                        any(SyncEntitlementsFromPlanCommand.class)
+                );
 
         verify(
                 subscriptionRepository,

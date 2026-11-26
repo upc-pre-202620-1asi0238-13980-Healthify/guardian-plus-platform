@@ -8,10 +8,19 @@ import java.util.Optional;
 
 public interface SubscriptionRepository {
 
+    void acquireSubscriberLock(
+            SubscriberId subscriberId);
+
+    void acquireSubscriberLockForSubscription(
+            SubscriptionId subscriptionId);
+
     Optional<Subscription> findById(
             SubscriptionId id);
 
     Optional<Subscription> findActiveBySubscriberId(
+            SubscriberId subscriberId);
+
+    Optional<Subscription> findPendingBySubscriberId(
             SubscriberId subscriberId);
 
     Subscription save(

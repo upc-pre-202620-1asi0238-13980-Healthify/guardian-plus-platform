@@ -12,6 +12,7 @@ import com.healthify.guardian.platform.subscriptions.infrastructure.persistence.
 import com.healthify.guardian.platform.subscriptions.infrastructure.persistence.jpa.repositories.SubscriptionPersistenceRepository;
 
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -33,6 +34,36 @@ public class SubscriptionRepositoryImpl
 
         this.planPersistenceRepository =
                 planPersistenceRepository;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void acquireSubscriberLock(
+            SubscriberId subscriberId
+    ) {
+        subscriptionPersistenceRepository
+                .acquireSubscriberLock(
+                        subscriberId.value()
+                );
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void acquireSubscriberLockForSubscription(
+            SubscriptionId subscriptionId
+    ) {
+
+        subscriptionPersistenceRepository
+                .findSubscriberIdBySubscriptionId(
+                        subscriptionId.value()
+                )
+                .ifPresent(
+                        subscriberId ->
+                                subscriptionPersistenceRepository
+                                        .acquireSubscriberLock(
+                                                subscriberId
+                                        )
+                );
     }
 
     @Override
@@ -60,6 +91,25 @@ public class SubscriptionRepositoryImpl
                         List.of(
                                 SubscriptionStatus.ACTIVE,
                                 SubscriptionStatus.CANCELLATION_SCHEDULED
+                        )
+                )
+                .map(
+                        SubscriptionPersistenceAssembler
+                                ::toDomainFromPersistence
+                );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Subscription> findPendingBySubscriberId(
+            SubscriberId subscriberId
+    ) {
+
+        return subscriptionPersistenceRepository
+                .findFirstBySubscriberIdAndStatusInOrderByCreatedAtDesc(
+                        subscriberId.value(),
+                        List.of(
+                                SubscriptionStatus.PENDING
                         )
                 )
                 .map(

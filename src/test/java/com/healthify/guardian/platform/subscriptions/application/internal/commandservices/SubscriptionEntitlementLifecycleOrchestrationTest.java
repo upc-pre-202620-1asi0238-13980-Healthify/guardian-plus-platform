@@ -195,7 +195,7 @@ class SubscriptionEntitlementLifecycleOrchestrationTest {
                 );
 
         Plan newPlan =
-                createPlan(
+                createFreePlan(
                         newPlanUuid
                 );
 
@@ -239,6 +239,75 @@ class SubscriptionEntitlementLifecycleOrchestrationTest {
         assertEquals(
                 new PlanId(newPlanUuid),
                 subscription.getPlanId()
+        );
+    }
+
+    @Test
+    void shouldNotSynchronizeEntitlementsWhenPaidPlanChangeIsRejected() {
+
+        UUID subscriptionUuid =
+                UUID.randomUUID();
+
+        UUID currentPlanUuid =
+                UUID.randomUUID();
+
+        UUID newPlanUuid =
+                UUID.randomUUID();
+
+        Subscription subscription =
+                createActiveSubscription(
+                        subscriptionUuid,
+                        currentPlanUuid
+                );
+
+        Plan newPlan =
+                createPlan(
+                        newPlanUuid
+                );
+
+        when(subscriptionRepository.findById(
+                new SubscriptionId(subscriptionUuid)
+        )).thenReturn(
+                Optional.of(subscription)
+        );
+
+        when(planRepository.findById(
+                new PlanId(newPlanUuid)
+        )).thenReturn(
+                Optional.of(newPlan)
+        );
+
+        var result =
+                subscriptionCommandService.handle(
+                        new ApplyPlanChangeCommand(
+                                subscriptionUuid,
+                                newPlanUuid
+                        )
+                );
+
+        assertTrue(
+                result.isFailure()
+        );
+
+        assertEquals(
+                new PlanId(currentPlanUuid),
+                subscription.getPlanId()
+        );
+
+        assertEquals(
+                SubscriptionStatus.ACTIVE,
+                subscription.getStatus()
+        );
+
+        verifyNoInteractions(
+                entitlementSetCommandService
+        );
+
+        verify(
+                subscriptionRepository,
+                never()
+        ).save(
+                any(Subscription.class)
         );
     }
 
@@ -563,6 +632,38 @@ class SubscriptionEntitlementLifecycleOrchestrationTest {
                         ),
                         new EntitlementCode(
                                 "HEALTH_MONITORING"
+                        )
+                )
+        );
+
+        return plan;
+    }
+
+    private Plan createFreePlan(
+            UUID planUuid
+    ) {
+
+        Plan plan =
+                createPlan(planUuid);
+
+        plan.setName(
+                "Guardian Basic"
+        );
+
+        plan.setPrice(
+                new Money(
+                        new BigDecimal("0.00"),
+                        Currency.getInstance("PEN")
+                )
+        );
+
+        plan.setEntitlementCodes(
+                Set.of(
+                        new EntitlementCode(
+                                "EMERGENCY_ALERTS"
+                        ),
+                        new EntitlementCode(
+                                "BASIC_REMINDERS"
                         )
                 )
         );
