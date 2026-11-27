@@ -163,6 +163,63 @@ public class AlertNotificationSender {
         }
     }
 
+    /**
+     * Tells every caregiver of the Fragile Citizen that a detected fall was cancelled from the wristband within
+     * its confirmation window, so nobody rushes over (US10, scenario 1). A dismissed alert was never dispatched,
+     * so the notice goes to the caregivers rather than to the alert's recipients. It is informational: only
+     * sent by {@code PUSH}, without sound, and not recorded as a delivery.
+     *
+     * @param alertId the dismissed alert
+     */
+    @Async("emergencyAlertingNotificationExecutor")
+    public void sendDismissal(AlertId alertId) {
+        try {
+            var alert = alertRepository.findById(alertId).orElse(null);
+            if (alert == null) {
+                return;
+            }
+            var caregivers = profileContextAcl.findActiveCaregivers(alert.getCareRecipientProfileId());
+            if (caregivers.isEmpty()) {
+                log.info("Dismissal of alert {} not pushed: {} has no active caregivers",
+                        alertId.value(), alert.getCareRecipientProfileId().value());
+                return;
+            }
+            var deviceTokens = alertChannelSettingRepository.findByUserIdIn(caregivers).stream()
+                    .filter(setting -> setting.getChannel() == NotificationChannel.PUSH)
+                    .filter(AlertChannelSetting::isEnabled)
+                    .filter(setting -> setting.getDeviceToken() != null && !setting.getDeviceToken().isBlank())
+                    .collect(Collectors.toMap(AlertChannelSetting::getUserId, AlertChannelSetting::getDeviceToken,
+                            (first, second) -> first));
+            var careRecipientName = profileContextAcl.findCareRecipientDisplayName(alert.getCareRecipientProfileId())
+                    .orElse(null);
+
+            for (var caregiver : caregivers) {
+                var deviceToken = deviceTokens.get(caregiver);
+                if (deviceToken == null) {
+                    log.info("Dismissal of alert {} not pushed to {}: no enabled PUSH device token",
+                            alertId.value(), caregiver.value());
+                    continue;
+                }
+                send(new AlertNotification(
+                        NotificationPurpose.ALERT_DISMISSED,
+                        alert.getId(),
+                        null,
+                        alert.getCareRecipientProfileId(),
+                        careRecipientName,
+                        alert.getSource().sourceType(),
+                        alert.getSeverity(),
+                        caregiver,
+                        NotificationChannel.PUSH,
+                        deviceToken,
+                        false,
+                        null,
+                        null));
+            }
+        } catch (RuntimeException e) {
+            log.error("Unexpected failure announcing the dismissal of alert {}", alertId.value(), e);
+        }
+    }
+
     private DeliveryStatus send(AlertNotification notification) {
         try {
             return notificationDispatcher.send(notification);

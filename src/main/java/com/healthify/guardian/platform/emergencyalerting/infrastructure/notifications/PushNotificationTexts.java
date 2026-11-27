@@ -55,6 +55,10 @@ public final class PushNotificationTexts {
             return new PushContent("La alerta ya está siendo atendida",
                     "Otro integrante del Care Circle se hizo cargo de la alerta de " + name + ".");
         }
+        if (notification.purpose() == NotificationPurpose.ALERT_DISMISSED) {
+            return new PushContent("Posible caída descartada",
+                    "Tras el impacto detectado, " + name + " confirmó desde su pulsera que se encuentra bien.");
+        }
         return switch (notification.sourceType()) {
             case FALL_DETECTED -> new PushContent("Posible caída detectada",
                     "La pulsera de " + name + " detectó un impacto. Abre la alerta para responder.");
