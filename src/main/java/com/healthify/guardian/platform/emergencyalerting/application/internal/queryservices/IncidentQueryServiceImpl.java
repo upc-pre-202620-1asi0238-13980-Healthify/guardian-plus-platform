@@ -6,7 +6,9 @@ import com.healthify.guardian.platform.emergencyalerting.domain.model.queries.Ge
 import com.healthify.guardian.platform.emergencyalerting.domain.model.queries.GetIncidentByIdQuery;
 import com.healthify.guardian.platform.emergencyalerting.domain.repositories.IncidentRepository;
 import org.springframework.stereotype.Service;
-
+import com.healthify.guardian.platform.emergencyalerting.domain.model.queries.GetIncidentsQuery;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import java.util.Optional;
 
 /**
@@ -30,4 +32,14 @@ public class IncidentQueryServiceImpl implements IncidentQueryService {
     public Optional<Incident> handle(GetIncidentByAlertIdQuery query) {
         return incidentRepository.findByAlertId(query.alertId());
     }
+    @Override
+public Page<Incident> handle(GetIncidentsQuery query) {
+    return incidentRepository.findAll(
+            query.patientId(),
+            query.dateRange(),
+            query.eventType(),
+            query.severity(),
+            PageRequest.of(query.page(), query.size())
+    );
+}
 }
