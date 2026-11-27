@@ -4,12 +4,18 @@ import com.healthify.guardian.platform.subscriptions.application.outboundservice
 import com.healthify.guardian.platform.subscriptions.application.outboundservices.PaymentProvider;
 import com.healthify.guardian.platform.subscriptions.application.outboundservices.PaymentRequest;
 import com.healthify.guardian.platform.subscriptions.application.outboundservices.PaymentStatus;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
 import java.util.UUID;
 
 @Component
+@ConditionalOnProperty(
+        name = "subscriptions.billing.payment-provider",
+        havingValue = "simulated",
+        matchIfMissing = true
+)
 public class SimulatedPaymentProviderAdapter implements PaymentProvider {
 
     private static final String PROVIDER_NAME = "stripe-simulator";

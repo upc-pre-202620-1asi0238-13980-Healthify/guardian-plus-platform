@@ -5,8 +5,17 @@ import java.util.Objects;
 public record PaymentInitiationResult(
         String provider,
         String externalReference,
-        PaymentStatus status
+        PaymentStatus status,
+        String clientSecret
 ) {
+
+    public PaymentInitiationResult(
+            String provider,
+            String externalReference,
+            PaymentStatus status
+    ) {
+        this(provider, externalReference, status, null);
+    }
 
     public PaymentInitiationResult {
         Objects.requireNonNull(provider, "provider must not be null");
