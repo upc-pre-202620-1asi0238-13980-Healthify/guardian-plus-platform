@@ -1,0 +1,17 @@
+target/
+.mvn/wrapper/maven-wrapper.jar
+HELP.md
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### VS Code ###
+.vscode/
+### Deployment ###
+deploy/.env
+
+### Local secrets (Brevo key, JWT and HMAC keys), loaded by Spring Boot from ./config ###
+/config/
